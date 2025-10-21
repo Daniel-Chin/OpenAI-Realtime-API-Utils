@@ -1,5 +1,6 @@
 # OpenAI Realtime API for Python
-Work in progress.  
+- Work in progress.  
+- I'm considering migrating to the [agent SDK by OpenAI](https://github.com/openai/openai-agents-python).  
 
 ## How to use
 - `interface.py` is a client-side-stateless wrapper of the Websocket interface. The only benefit is static type check.  
