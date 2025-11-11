@@ -8,7 +8,10 @@ from agents.realtime import (
     RealtimeModelConfig,
     RealtimeModel, RealtimeItem, RealtimeResponse, 
     RealtimeModelEvent,
-    RealtimeModelListener,
+    RealtimeModelListener, RealtimeModelRawClientMessage, 
+)
+from openai.types.realtime import (
+    RealtimeResponseCreateParams, RealtimeFunctionTool,
 )
 
 with open('./temp.log', 'w') as f:
@@ -26,21 +29,40 @@ with open('./temp.log', 'w') as f:
         model.add_listener(Listener())
         try:
             await model.connect(RealtimeModelConfig())
-            await sleepVerbose(1)
+            # await sleepVerbose(1)
             await model.send_event(realtime_model_inputs.RealtimeModelSendSessionUpdate(
                 session_settings = realtime_config.RealtimeSessionModelSettings(),
             ))
             await sleepVerbose(1)
             await model.send_event(realtime_model_inputs.RealtimeModelSendUserInput(
-                user_input='What is three plus four?',
+                user_input='Turn on the lights.',
                 start_response=False,
             ))
-            await sleepVerbose(1)
-            await model.send_event(realtime_model_inputs.RealtimeModelSendUserInput(
-                user_input='Actually nevermind.',
-                start_response=False,
+            response = RealtimeResponseCreateParams(
+                tools=[RealtimeFunctionTool(
+                    name='set_light_state',
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "target": {
+                                "type": "string",
+                                "enum": ["on", "off"],
+                            },
+                        },
+                        "required": ["target"],
+                    },
+                    type='function',
+                )],
+            )
+            await model.send_event(realtime_model_inputs.RealtimeModelSendRawMessage(
+                message=RealtimeModelRawClientMessage(
+                    type='response.create',
+                    other_data=dict(
+                        response=response.model_dump(),
+                    ),
+                ),
             ))
-            await sleepVerbose(1)
+            await sleepVerbose(2)
         finally:
             await model.close()
 
