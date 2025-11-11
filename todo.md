@@ -1,0 +1,12 @@
+- on interrupt, if the current speech is playing,
+  - send to server
+    - response.cancel
+    - conversation.item.truncate
+    - conversation.item.retrieve
+  - stop the local audio player
+  - mark the truncation in local conversation
+  - references: 
+    - RealtimePlaybackTracker
+    - _get_playback_state
+    - _send_interrupt
+    - input_audio_buffer.speech_started
