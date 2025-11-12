@@ -1,5 +1,7 @@
 import openai.types.realtime as tp_rt
 
+from .shared import parse_client_event_param
+
 class TrackConfigs:
     '''
     Client-side repr of session config.  
@@ -15,3 +17,11 @@ class TrackConfigs:
                 assert isinstance(event.session, tp_rt.RealtimeSessionCreateRequest)
                 self.session_config = event.session
         return event
+
+    def client_event_handler(
+        self, event_param: tp_rt.RealtimeClientEventParam, 
+    ) -> tp_rt.RealtimeClientEventParam:
+        event = parse_client_event_param(event_param)
+        if isinstance(event, tp_rt.SessionUpdateEvent):
+            self.session_config = None
+        return event_param
