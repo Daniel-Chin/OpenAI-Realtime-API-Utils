@@ -1,25 +1,55 @@
 import copy
 import logging
 import typing as tp
+from contextlib import contextmanager
 
 import websockets
 import openai.types.realtime as tp_rt
 from openai.types.realtime.realtime_server_event import ConversationItemRetrieved
 from openai.resources.realtime.realtime import AsyncRealtimeConnection
+from openai._models import construct_type_unchecked
 
-EventHandler = tp.Callable[[tp_rt.RealtimeServerEvent], None]
+ServerEventHandler = tp.Callable[
+    [tp_rt.RealtimeServerEvent], 
+    tp_rt.RealtimeServerEvent, 
+]
+ClientEventHandler = tp.Callable[
+    [tp_rt.RealtimeClientEventParam], 
+    tp_rt.RealtimeClientEventParam, 
+]
 
-async def keep_handling(
-    connection: AsyncRealtimeConnection, eventHandlers: list[EventHandler], 
+def parse_client_event_param(
+    event_param: tp_rt.RealtimeClientEventParam, 
+) -> tp_rt.RealtimeClientEvent:
+    return tp.cast(
+        tp_rt.RealtimeClientEvent, construct_type_unchecked(
+            value=event_param, 
+            type_=tp.cast(tp.Any, tp_rt.RealtimeClientEvent), 
+        )
+    )
+
+@contextmanager
+def spawn_mainloop(
+    connection: AsyncRealtimeConnection, 
+    serverEventHandlers: list[ServerEventHandler], 
+    clientEventHandlers: list[ClientEventHandler], 
 ):
-    while True:
-        try:
-            event = await connection.recv()
-        except websockets.exceptions.ConnectionClosedOK:
-            print('WebSocket connection closed normally')
-            return
-        for handler in eventHandlers:
-            handler(event)
+    async def mainloop():
+        while True:
+            try:
+                event = await connection.recv()
+            except websockets.exceptions.ConnectionClosedOK:
+                print('WebSocket connection closed normally')
+                return
+            for sHandler in serverEventHandlers:
+                event = sHandler(event)
+    
+    async def send(event: tp_rt.RealtimeClientEventParam) -> None:
+        for cHandler in clientEventHandlers:
+            event = cHandler(event)
+        await connection.send(event)
+    
+    yield mainloop, send
 
 def PagesOf(
     signal: bytes, n_bytes_per_page: int, 

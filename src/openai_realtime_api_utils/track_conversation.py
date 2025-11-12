@@ -48,7 +48,7 @@ class TrackConversation:
             } {event_id:28s} {strEventOmitAudio(event)}''')
         return '\n  '.join(buf)[1:]
 
-    def handler(self, event: tp_rt.RealtimeServerEvent) -> None:
+    def server_event_handler(self, event: tp_rt.RealtimeServerEvent) -> None:
         datetime_ = datetime.now()
         self.server_events[event.event_id] = (event, datetime_)
         match event:
