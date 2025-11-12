@@ -68,11 +68,11 @@ class Interface:
         self._server_event_type_adapter = get_server_event_type_adapter()
     
     @asynccontextmanager
-    async def Context(
+    async def context(
         self, basicConfig: BasicConfig, serverEventHandler: EventHandler, 
     ) -> tp.AsyncGenerator['Interface', None]:
         '''An async context manager for the model connection.'''
-        self.setEventHandler(serverEventHandler)
+        self.set_event_handler(serverEventHandler)
         await self.connect(basicConfig)
         try:
             yield self
@@ -95,7 +95,7 @@ class Interface:
 
         url = f'wss://api.openai.com/v1/realtime?model={model}'
 
-        def getHeaders() -> dict[str, str]:
+        def get_headers() -> dict[str, str]:
             h = basicConfig.get('headers')
             if h is not None:
                 return h
@@ -108,7 +108,7 @@ class Interface:
         self._websocket = await websockets.connect(
             url,
             user_agent_header=_USER_AGENT,
-            additional_headers=getHeaders(),
+            additional_headers=get_headers(),
             max_size=None,  # Allow any size of message
         )
         self._websocket_task = asyncio.create_task(self._listen_for_messages())
@@ -132,7 +132,7 @@ class Interface:
                 )
             )
 
-    def setEventHandler(self, h: EventHandler, /) -> None:
+    def set_event_handler(self, h: EventHandler, /) -> None:
         '''Add a handler to the model.'''
         self._handler = h
 
