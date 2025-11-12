@@ -186,8 +186,8 @@ class Interface:
 
     async def _handle_ws_event(self, event: dict[str, tp.Any]):
         try:
-            if 'previous_item_id' in event and event['previous_item_id'] is None:
-                event['previous_item_id'] = ''  # TODO (rm) remove
+            if 'previous_item_id' in event and event['previous_item_id'] == '':
+                event['previous_item_id'] = None
             parsed: AllRealtimeServerEvents = self._server_event_type_adapter.validate_python(event)
         except pydantic.ValidationError as e:
             self._handler(InterfaceException(
