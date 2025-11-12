@@ -10,7 +10,7 @@ class TrackConfigs:
         self.session_config: tp_rt.RealtimeSessionCreateRequest | None = None
 
     def server_event_handler(
-        self, event: tp_rt.RealtimeServerEvent, 
+        self, event: tp_rt.RealtimeServerEvent, _, 
     ) -> tp_rt.RealtimeServerEvent:
         match event:
             case tp_rt.SessionUpdatedEvent():
@@ -19,7 +19,7 @@ class TrackConfigs:
         return event
 
     def client_event_handler(
-        self, event_param: tp_rt.RealtimeClientEventParam, 
+        self, event_param: tp_rt.RealtimeClientEventParam, _, 
     ) -> tp_rt.RealtimeClientEventParam:
         event = parse_client_event_param(event_param)
         if isinstance(event, tp_rt.SessionUpdateEvent):

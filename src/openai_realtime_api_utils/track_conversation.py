@@ -71,7 +71,9 @@ class TrackConversation:
             )
         self.conversation.touch(item.id, event_id)
     
-    def server_event_handler(self, event: tp_rt.RealtimeServerEvent) -> None:
+    def server_event_handler(
+        self, event: tp_rt.RealtimeServerEvent, _, 
+    ) -> None:
         datetime_ = datetime.now()
         self.server_events[event.event_id] = (event, datetime_)
         match event:
@@ -149,7 +151,7 @@ class TrackConversation:
                 self.conversation.touch(event.item_id, event.event_id)
     
     def client_event_handler(
-        self, event_param: tp_rt.RealtimeClientEventParam, 
+        self, event_param: tp_rt.RealtimeClientEventParam, _, 
     ) -> tp_rt.RealtimeClientEventParam:
         event = parse_client_event_param(event_param)
         match event:

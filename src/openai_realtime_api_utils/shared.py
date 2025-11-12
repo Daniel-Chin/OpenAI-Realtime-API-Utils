@@ -10,11 +10,11 @@ from openai.resources.realtime.realtime import AsyncRealtimeConnection
 from openai._models import construct_type_unchecked
 
 ServerEventHandler = tp.Callable[
-    [tp_rt.RealtimeServerEvent], 
+    [tp_rt.RealtimeServerEvent, AsyncRealtimeConnection], 
     tp_rt.RealtimeServerEvent, 
 ]
 ClientEventHandler = tp.Callable[
-    [tp_rt.RealtimeClientEventParam], 
+    [tp_rt.RealtimeClientEventParam, AsyncRealtimeConnection], 
     tp_rt.RealtimeClientEventParam, 
 ]
 
@@ -42,11 +42,11 @@ def spawn_mainloop(
                 print('WebSocket connection closed normally')
                 return
             for sHandler in serverEventHandlers:
-                event = sHandler(event)
+                event = sHandler(event, connection)
     
     async def send(event: tp_rt.RealtimeClientEventParam) -> None:
         for cHandler in clientEventHandlers:
-            event = cHandler(event)
+            event = cHandler(event, connection)
         await connection.send(event)
     
     yield mainloop, send
