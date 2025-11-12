@@ -24,7 +24,7 @@ class Conversation:
     def getCellFromId(self, item_id: str) -> Cell:
         return self.cells[self.seek(item_id)]
     
-    def insertAfter(
+    def insert_after(
         self, item_id: str, 
         previous_item_id: str | None, 
     ) -> Cell:
@@ -34,6 +34,16 @@ class Conversation:
             else self.seek(previous_item_id) + 1
         ), new_cell)
         return new_cell
+    
+    def move(
+        self, item_id: str, 
+        previous_item_id: str | None, 
+    ) -> None:
+        cell = self.cells.pop(self.seek(item_id))
+        self.cells.insert((
+            0 if previous_item_id is None 
+            else self.seek(previous_item_id) + 1
+        ), cell)
     
     def previousItemIdOf(self, item_id: str) -> str | None:
         cell_i = self.seek(item_id)
@@ -47,3 +57,9 @@ class Conversation:
     
     def touch(self, item_id: str, event_id: str) -> None:
         self.getCellFromId(item_id).touched_by_events.append(event_id)
+    
+    def last_item_id(self) -> str | None:
+        if len(self.cells) == 0:
+            return None
+        else:
+            return self.cells[-1].item_id

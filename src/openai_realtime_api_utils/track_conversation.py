@@ -3,7 +3,10 @@ from datetime import datetime
 import openai.types.realtime as tp_rt
 from openai.types.realtime.realtime_server_event import ConversationItemRetrieved
 
-from .shared import strItemOmitAudio, strEventOmitAudio
+from .shared import (
+    strItemOmitAudio, strEventOmitAudio, 
+    parse_client_event_param, 
+)
 from .conversation import Conversation
 
 class TrackConversation:
@@ -16,6 +19,8 @@ class TrackConversation:
         - That API is explicitly for retrieving full audio anyways.  
     - Does not track:  
       - response objects `tp_rt.RealtimeResponse`.  
+    - Locally synced by watching outgoing client events:  
+      - tool output.  
     - Fast synced via delta:  
       - user input audio transcription;  
       - assistant text;  
@@ -48,6 +53,24 @@ class TrackConversation:
             } {event_id:28s} {strEventOmitAudio(event)}''')
         return '\n  '.join(buf)[1:]
 
+    def add_item(
+        self, item: tp_rt.ConversationItem,
+        previous_item_id: str | None,
+        event_id: str,
+        is_from_server: bool,
+    ) -> None:
+        assert item.id is not None
+        already_here = item.id in self.items
+        assert is_from_server or not already_here
+        self.items[item.id] = item
+        if already_here:
+            self.conversation.move(item.id, previous_item_id)
+        else:
+            self.conversation.insert_after(
+                item.id, previous_item_id, 
+            )
+        self.conversation.touch(item.id, event_id)
+    
     def server_event_handler(self, event: tp_rt.RealtimeServerEvent) -> None:
         datetime_ = datetime.now()
         self.server_events[event.event_id] = (event, datetime_)
@@ -55,13 +78,10 @@ class TrackConversation:
             case tp_rt.ConversationItemCreatedEvent():
                 raise RuntimeError('Beta API signature detected')
             case tp_rt.ConversationItemAdded(item=item):
-                assert item.id is not None
-                assert item.id not in self.items
-                self.items[item.id] = item
-                self.conversation.insertAfter(
-                    item.id, event.previous_item_id, 
+                self.add_item(
+                    item, event.previous_item_id, event.event_id, 
+                    is_from_server=True,
                 )
-                self.conversation.touch(item.id, event.event_id)
             case tp_rt.ConversationItemDone(item=item):
                 assert item.id is not None
                 old_item = self.items[item.id]
@@ -127,3 +147,17 @@ class TrackConversation:
                 else:
                     content.transcript += event.delta
                 self.conversation.touch(event.item_id, event.event_id)
+    
+    def client_event_handler(
+        self, event_param: tp_rt.RealtimeClientEventParam, 
+    ) -> tp_rt.RealtimeClientEventParam:
+        event = parse_client_event_param(event_param)
+        match event:
+            case tp_rt.ConversationItemCreateEvent():
+                self.add_item(
+                    event.item, 
+                    event.previous_item_id or self.conversation.last_item_id(), 
+                    '',
+                    is_from_server=False,
+                )
+        return event_param
