@@ -4,7 +4,6 @@ import openai.types.realtime as tp_rt
 from openai.types.realtime.realtime_server_event import ConversationItemRetrieved
 
 from .shared import strItemOmitAudio, strEventOmitAudio
-from .interface import InterfaceException
 from .conversation import Conversation
 
 class TrackConversation:
@@ -49,9 +48,7 @@ class TrackConversation:
             } {event_id:28s} {strEventOmitAudio(event)}''')
         return '\n  '.join(buf)[1:]
 
-    def handler(self, event: tp_rt.RealtimeServerEvent | InterfaceException) -> None:
-        if isinstance(event, InterfaceException):
-            return
+    def handler(self, event: tp_rt.RealtimeServerEvent) -> None:
         datetime_ = datetime.now()
         self.server_events[event.event_id] = (event, datetime_)
         match event:
