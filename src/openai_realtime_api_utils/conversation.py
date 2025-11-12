@@ -12,6 +12,7 @@ class Conversation:
 
     def __init__(self) -> None:
         self.cells: list[Conversation.Cell] = []
+        self.trashed_cells: list[Conversation.Cell] = []
     
     def seek(self, item_id: str) -> int:
         cell_i, = [
@@ -19,6 +20,9 @@ class Conversation:
             if cell.item_id == item_id
         ]
         return cell_i
+
+    def getCellFromId(self, item_id: str) -> Cell:
+        return self.cells[self.seek(item_id)]
     
     def insertAfter(
         self, item_id: str, 
@@ -38,9 +42,8 @@ class Conversation:
         else:
             return self.cells[cell_i - 1].item_id
     
-    def pop(self, item_id: str) -> Cell:
-        return self.cells.pop(self.seek(item_id))
+    def trash(self, item_id: str) -> None:
+        self.trashed_cells.append(self.cells.pop(self.seek(item_id)))
     
     def touch(self, item_id: str, event_id: str) -> None:
-        cell = self.cells[self.seek(item_id)]
-        cell.touched_by_events.append(event_id)
+        self.getCellFromId(item_id).touched_by_events.append(event_id)

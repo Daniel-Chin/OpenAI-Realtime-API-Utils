@@ -1,3 +1,9 @@
+'''
+Deprecated in favor of openai.realtime.realtime
+'''
+
+from __future__ import annotations
+
 from contextlib import asynccontextmanager
 import asyncio
 import typing as tp
@@ -60,43 +66,42 @@ class Interface:
     def __init__(self) -> None:
         self._websocket: ClientConnection | None = None
         self._websocket_task: asyncio.Task[None] | None = None
-        def unimplementedHandler(_) -> None:
-            raise NotImplementedError
-        self._handler: EventHandler = unimplementedHandler
+        self._handlers: list[EventHandler] = []
         self._tracing_config: RealtimeModelTracingConfig | tp.Literal['auto'] | None = None
         self._session_config: tp_rt.RealtimeSessionCreateRequest | None = None
         self._server_event_type_adapter = get_server_event_type_adapter()
     
     @asynccontextmanager
     async def context(
-        self, basicConfig: BasicConfig, serverEventHandler: EventHandler, 
-    ) -> tp.AsyncGenerator['Interface', None]:
+        self, basic_config: BasicConfig, 
+        server_event_handlers: list[EventHandler], 
+    ) -> tp.AsyncGenerator[Interface, None]:
         '''An async context manager for the model connection.'''
-        self.set_event_handler(serverEventHandler)
-        await self.connect(basicConfig)
+        self.set_event_handlers(server_event_handlers)
+        await self.connect(basic_config)
         try:
             yield self
         finally:
             await self.close()
 
     async def connect(
-        self, basicConfig: BasicConfig, 
+        self, basic_config: BasicConfig, 
     ) -> None:
         '''Establish a connection to the model and keep it alive.'''
         assert self._websocket is None, 'Already connected'
         assert self._websocket_task is None, 'Already connected'
 
-        api_key = await get_api_key(basicConfig.get('api_key'))
+        api_key = await get_api_key(basic_config.get('api_key'))
 
-        self._tracing_config = basicConfig.get('tracing_config')
-        self._session_config = basicConfig.get('initial_model_settings')
+        self._tracing_config = basic_config.get('tracing_config')
+        self._session_config = basic_config.get('initial_model_settings')
 
         model = 'gpt-realtime' if self._session_config is None else self._session_config.model
 
         url = f'wss://api.openai.com/v1/realtime?model={model}'
 
         def get_headers() -> dict[str, str]:
-            h = basicConfig.get('headers')
+            h = basic_config.get('headers')
             if h is not None:
                 return h
             else:
@@ -132,9 +137,17 @@ class Interface:
                 )
             )
 
-    def set_event_handler(self, h: EventHandler, /) -> None:
-        '''Add a handler to the model.'''
-        self._handler = h
+    def set_event_handlers(self, hs: list[EventHandler], /) -> None:
+        '''Set the handlers.'''
+        self._handlers = hs
+    
+    def add_event_handler(self, h: EventHandler, /) -> None:
+        '''Add a handler.'''
+        self._handlers.append(h)
+    
+    def _handle(self, event: tp_rt.RealtimeServerEvent | InterfaceException) -> None:
+        for h in self._handlers:
+            h(event)
 
     async def _listen_for_messages(self):
         assert self._websocket is not None, 'Not connected'
@@ -145,11 +158,11 @@ class Interface:
                     parsed = json.loads(message)
                     await self._handle_ws_event(parsed)
                 except json.JSONDecodeError as e:
-                    self._handler(InterfaceException(
+                    self._handle(InterfaceException(
                         exception=e, context='Failed to parse WebSocket message as JSON',
                     ))
                 except Exception as e:
-                    self._handler(InterfaceException(
+                    self._handle(InterfaceException(
                         exception=e, context='Error handling WebSocket event',
                     ))
 
@@ -157,11 +170,11 @@ class Interface:
             # Normal connection closure - no exception event needed
             print('WebSocket connection closed normally')
         except websockets.exceptions.ConnectionClosed as e:
-            self._handler(InterfaceException(
+            self._handle(InterfaceException(
                 exception=e, context='WebSocket connection closed unexpectedly'
             ))
         except Exception as e:
-            self._handler(InterfaceException(
+            self._handle(InterfaceException(
                 exception=e, context='WebSocket error in message listener'
             ))
 
@@ -169,6 +182,7 @@ class Interface:
         '''Send a raw message to the model.'''
         assert self._websocket is not None, 'Not connected'
         payload = event.model_dump_json(exclude_none=True, exclude_unset=True)
+        print(f'{payload = }')
         await self._websocket.send(payload)
 
     async def close(self) -> None:
@@ -190,12 +204,12 @@ class Interface:
                 event['previous_item_id'] = None
             parsed: AllRealtimeServerEvents = self._server_event_type_adapter.validate_python(event)
         except pydantic.ValidationError as e:
-            self._handler(InterfaceException(
+            self._handle(InterfaceException(
                 exception=e, context=f'Failed to validate server event: {event}',
             ))
             return
         except Exception as e:
-            self._handler(InterfaceException(
+            self._handle(InterfaceException(
                 exception=e, context=f'Failed to validate server event: {event}',
             ))
             return
@@ -206,7 +220,7 @@ class Interface:
             case tp_rt.SessionUpdatedEvent():
                 self._update_created_session(parsed.session)
         
-        self._handler(parsed)
+        self._handle(parsed)
 
     def _update_created_session(
         self,
