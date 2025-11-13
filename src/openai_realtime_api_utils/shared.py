@@ -89,11 +89,13 @@ def itemWithAudioOmitted(item: tp_rt.ConversationItem) -> tp_rt.ConversationItem
 def strServerEventOmitAudio(event: tp_rt.RealtimeServerEvent) -> str:
     match event:
         case tp_rt.ResponseAudioDeltaEvent():
-            e = event.model_copy()
-            e.delta = omitAudio(e.delta)
+            e = event.model_copy(update=dict(
+                delta=omit_audio(event.delta)
+            ))
         case ConversationItemRetrieved():
-            e = event.model_copy()
-            e.item = itemWithAudioOmitted(e.item)
+            e = event.model_copy(update=dict(
+                item=item_with_audio_omitted(event.item)
+            ))
         case _:
             e = event
     return str(e)
