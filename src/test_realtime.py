@@ -10,7 +10,7 @@ from openai_realtime_api_utils import (
     hook_handlers, GiveClientEventId, 
 )
 from openai_realtime_api_utils.shared import (
-    strServerEventOmitAudio, strClientEventOmitAudio, 
+    str_server_event_omit_audio, str_client_event_omit_audio, 
 )
 
 async def main():
@@ -18,10 +18,10 @@ async def main():
         pcm_data = w.readframes(w.getnframes())
 
     def sHandler(event: tp_rt.RealtimeServerEvent, _) -> tp_rt.RealtimeServerEvent:
-        print(strServerEventOmitAudio(event))
+        print(str_server_event_omit_audio(event))
         return event
     def cHandler(eventParam: tp_rt.RealtimeClientEventParam, _) -> tp_rt.RealtimeClientEventParam:
-        print(strClientEventOmitAudio(eventParam))
+        print(str_client_event_omit_audio(eventParam))
         return eventParam
 
     a_oa = openai.AsyncOpenAI()

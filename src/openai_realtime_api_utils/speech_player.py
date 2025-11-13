@@ -81,7 +81,7 @@ def SpeechPlayer(
                         continue
                     if len(segment) > n_bytes_per_page:
                         speech.audio = [
-                            *PagesOf(segment, n_bytes_per_page), 
+                            *pages_of(segment, n_bytes_per_page), 
                             *speech.audio, 
                         ]
                         continue

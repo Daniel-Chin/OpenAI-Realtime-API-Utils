@@ -8,7 +8,7 @@ from openai.types.realtime import realtime_conversation_item_user_message
 from openai_realtime_api_utils import (
     Interface, BasicConfig, InterfaceException, 
 )
-from openai_realtime_api_utils.shared import strServerEventOmitAudio
+from openai_realtime_api_utils.shared import str_server_event_omit_audio
 
 async def main():
     with wave.open('./test.wav', 'rb') as w:
@@ -19,7 +19,7 @@ async def main():
             case InterfaceException():
                 print(f'<Error> {event}')
             case _:
-                print(f'<Server> {strServerEventOmitAudio(event)}')
+                print(f'<Server> {str_server_event_omit_audio(event)}')
 
     async with Interface().context(BasicConfig(), [handler]) as interface:
         await interface.send(tp_rt.SessionUpdateEvent(

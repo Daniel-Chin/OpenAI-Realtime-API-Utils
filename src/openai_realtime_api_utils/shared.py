@@ -18,6 +18,14 @@ ClientEventHandler = tp.Callable[
     tp_rt.RealtimeClientEventParam, 
 ]
 
+PART_TO_CONTENT_TYPE: dict[
+    tp.Literal["text", "audio"], 
+    tp.Literal["output_text", "output_audio"],
+] = {
+    'text': 'output_text', 
+    'audio': 'output_audio', 
+}
+
 def parse_client_event_param(
     event_param: tp_rt.RealtimeClientEventParam, 
 ) -> tp_rt.RealtimeClientEvent:
@@ -51,13 +59,13 @@ def hook_handlers(
     
     yield keep_receiving, send
 
-def PagesOf(
+def pages_of(
     signal: bytes, n_bytes_per_page: int, 
 ):
     for start in range(0, len(signal), n_bytes_per_page):
         yield signal[start: start + n_bytes_per_page]
 
-def getLogger(log_pathname: str) -> logging.Logger:
+def get_logger(log_pathname: str) -> logging.Logger:
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     handler = logging.FileHandler(log_pathname)
@@ -69,10 +77,10 @@ def getLogger(log_pathname: str) -> logging.Logger:
     logger.addHandler(handler)
     return logger
 
-def omitAudio(audio: str) -> str:
+def omit_audio(audio: str) -> str:
     return f'<omitted {len(audio)} bytes>'
 
-def itemWithAudioOmitted(item: tp_rt.ConversationItem) -> tp_rt.ConversationItem:
+def item_with_audio_omitted(item: tp_rt.ConversationItem) -> tp_rt.ConversationItem:
     match item:
         case (
             tp_rt.RealtimeConversationItemAssistantMessage() | 
@@ -81,12 +89,12 @@ def itemWithAudioOmitted(item: tp_rt.ConversationItem) -> tp_rt.ConversationItem
             it = copy.deepcopy(item)
             for c in it.content:
                 if c.audio:
-                    c.audio = omitAudio(c.audio)
+                    c.audio = omit_audio(c.audio)
             return it
         case _:
             return item
 
-def strServerEventOmitAudio(event: tp_rt.RealtimeServerEvent) -> str:
+def str_server_event_omit_audio(event: tp_rt.RealtimeServerEvent) -> str:
     match event:
         case tp_rt.ResponseAudioDeltaEvent():
             e = event.model_copy(update=dict(
@@ -100,16 +108,24 @@ def strServerEventOmitAudio(event: tp_rt.RealtimeServerEvent) -> str:
             e = event
     return str(e)
 
-def strClientEventOmitAudio(eventParam: tp_rt.RealtimeClientEventParam) -> str:
+def str_client_event_omit_audio(eventParam: tp_rt.RealtimeClientEventParam) -> str:
     event = parse_client_event_param(eventParam)
     match event:
         case tp_rt.InputAudioBufferAppendEvent():
             eventParam_ = tp.cast(tp_rt.InputAudioBufferAppendEventParam, eventParam)
             eP = eventParam_.copy()
-            eP['audio'] = omitAudio(eP['audio'])
+            eP['audio'] = omit_audio(eP['audio'])
         case _:
             eP = eventParam
     return str(eP)
 
-def strItemOmitAudio(item: tp_rt.ConversationItem) -> str:
-    return str(itemWithAudioOmitted(item))
+def str_item_omit_audio(item: tp_rt.ConversationItem) -> str:
+    return str(item_with_audio_omitted(item))
+
+def item_from_param(
+    item_param: tp_rt.ConversationItemParam, /, 
+) -> tp_rt.ConversationItem:
+    return construct_type_unchecked(
+        value=item_param, 
+        type_=tp.cast(tp.Any, tp_rt.ConversationItem),
+    )
