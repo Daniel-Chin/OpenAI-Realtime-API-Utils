@@ -2,7 +2,7 @@ import openai.types.realtime as tp_rt
 
 from ..shared import parse_client_event_param
 
-class TrackConfigs:
+class TrackConfig:
     '''
     Client-side repr of session config.  
     '''

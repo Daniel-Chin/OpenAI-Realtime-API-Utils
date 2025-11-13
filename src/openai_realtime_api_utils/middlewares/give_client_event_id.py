@@ -6,7 +6,7 @@ class GiveClientEventId:
     def __init__(self):
         self.c = count()
     
-    def handleClientEvent(
+    def client_event_handler(
         self, 
         eventParam: tp_rt.RealtimeClientEventParam, 
         _, 

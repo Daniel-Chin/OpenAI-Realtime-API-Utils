@@ -180,7 +180,7 @@ class TrackConversation:
 
     def server_event_handler(
         self, event: tp_rt.RealtimeServerEvent, _, 
-    ) -> None:
+    ) -> tp_rt.RealtimeServerEvent:
         datetime_ = datetime.now()
         self.server_events[event.event_id] = (event, datetime_)
         match event:
@@ -301,6 +301,7 @@ class TrackConversation:
                 assert response.id is not None
                 assert response.id in self.responses
                 self.responses[response.id] = response
+        return event
     
     def client_event_handler(
         self, event_param: tp_rt.RealtimeClientEventParam, _, 
