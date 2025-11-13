@@ -1,3 +1,5 @@
+# ruff: noqa: F401, F841
+
 import asyncio
 import base64
 import wave
