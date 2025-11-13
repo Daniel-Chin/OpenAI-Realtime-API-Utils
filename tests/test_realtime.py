@@ -6,10 +6,11 @@ import openai
 from openai.resources.realtime import AsyncRealtime
 import openai.types.realtime as tp_rt
 
-from openai_realtime_api_utils import (
-    hook_handlers, GiveClientEventId, 
+from openai_realtime_api_utils.middlewares import (
+    GiveClientEventId, 
 )
 from openai_realtime_api_utils.shared import (
+    hook_handlers,
     str_server_event_omit_audio, str_client_event_omit_audio, 
 )
 

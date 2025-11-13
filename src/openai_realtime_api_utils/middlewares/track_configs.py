@@ -1,6 +1,6 @@
 import openai.types.realtime as tp_rt
 
-from .shared import parse_client_event_param
+from ..shared import parse_client_event_param
 
 class TrackConfigs:
     '''

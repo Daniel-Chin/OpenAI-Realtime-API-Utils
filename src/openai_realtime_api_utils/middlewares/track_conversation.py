@@ -8,11 +8,11 @@ import uuid
 import openai.types.realtime as tp_rt
 from openai.types.realtime.realtime_server_event import ConversationItemRetrieved
 
-from .shared import (
+from ..shared import (
     str_item_omit_audio, str_server_event_omit_audio, 
     parse_client_event_param, item_from_param, PART_TO_CONTENT_TYPE, 
 )
-from .conversation import ConversationGroup
+from ..conversation import ConversationGroup
 
 class TrackConversation:
     '''
