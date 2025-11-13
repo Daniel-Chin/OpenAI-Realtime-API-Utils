@@ -105,6 +105,7 @@ class TrackConversation:
                         response_id = self.response_added_awaiting_conversation_insertion.pop(item_id)
                     except KeyError:
                         is_added_by_response = False
+                        response_id = None
                     else:
                         is_added_by_response = True
                     assert not (is_locally_synced and is_added_by_response)
@@ -126,6 +127,7 @@ class TrackConversation:
                             'I just thought the ConversationItemAdded after the ResponseOutputItemAddedEvent would have identical item.', 
                             dangling_item, event.item,
                         )
+                        assert response_id is not None
                         self.parent.conversation_group.insert_after(
                             ConversationGroup.Cell(
                                 item_id=item_id,
