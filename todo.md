@@ -6,6 +6,7 @@
   - stop the local audio player
   - mark the truncation in local conversation
   - references: 
+    - my speech_player.py
     - RealtimePlaybackTracker
     - _get_playback_state
     - _send_interrupt
