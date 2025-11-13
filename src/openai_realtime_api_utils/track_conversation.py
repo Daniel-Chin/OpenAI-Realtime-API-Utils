@@ -4,7 +4,7 @@ import openai.types.realtime as tp_rt
 from openai.types.realtime.realtime_server_event import ConversationItemRetrieved
 
 from .shared import (
-    strItemOmitAudio, strEventOmitAudio, 
+    strItemOmitAudio, strServerEventOmitAudio, 
     parse_client_event_param, 
 )
 from .conversation import Conversation
@@ -50,7 +50,7 @@ class TrackConversation:
             dt = (datetime_ - self.init_time).total_seconds()
             buf.append(f'''  {
                 dt:5.1f
-            } {event_id:28s} {strEventOmitAudio(event)}''')
+            } {event_id:28s} {strServerEventOmitAudio(event)}''')
         return '\n  '.join(buf)[1:]
 
     def add_item(
