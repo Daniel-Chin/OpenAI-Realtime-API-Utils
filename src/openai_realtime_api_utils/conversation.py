@@ -8,7 +8,7 @@ class Conversation:
         item_id: str
         # (content_index, audio_end_ms)
         audio_truncate: tuple[int, int] | None = None
-        touched_by_events: list[str] = []
+        touched_by_events: list[str] = field(default_factory=list)
 
     def __init__(self) -> None:
         self.cells: list[Conversation.Cell] = []
