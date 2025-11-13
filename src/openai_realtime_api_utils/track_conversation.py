@@ -48,9 +48,7 @@ class TrackConversation:
         for event_id in cell.touched_by_events:
             event, datetime_ = self.server_events[event_id]
             dt = (datetime_ - self.init_time).total_seconds()
-            buf.append(f'''  {
-                dt:5.1f
-            } {event_id:28s} {strServerEventOmitAudio(event)}''')
+            buf.append(f'  {dt:5.1f} {event_id:28s} {strServerEventOmitAudio(event)}')
         return '\n  '.join(buf)[1:]
 
     def add_item(
