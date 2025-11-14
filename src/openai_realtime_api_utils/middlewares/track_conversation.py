@@ -316,7 +316,7 @@ class TrackConversation:
                 )
                 item_id = event_param['item'].get(
                     'id', None, 
-                ) or f'client-proposed-{uuid.uuid4()}'
+                ) or f'client-set-{uuid.uuid4()}'[:31]
                 previous_item_id = event_param.get(
                     'previous_item_id', 
                     self.conversation_group.last_item_id(), 
