@@ -1,12 +1,33 @@
 # OpenAI Realtime API Utils
-- Work in progress.  
-- I'm migrating to the [agent SDK by OpenAI](https://github.com/openai/openai-agents-python).  
+- See the example at [./tests/test_middlewares.py](./tests/test_middlewares.py)  
+```python
+with hook_handlers(
+    connection, 
+    serverEventHandlers = [
+        track_config.server_event_handler,
+        track_conversation.server_event_handler,
+        middlewares.PrintEvents().server_event_handler,
+        f, 
+    ], 
+    clientEventHandlers = [
+        middlewares.GiveClientEventId().client_event_handler, 
+        track_config.client_event_handler,
+        track_conversation.client_event_handler,
+        middlewares.PrintEvents().client_event_handler,
+    ],
+) as (keep_receiving, send):
+    asyncio.create_task(keep_receiving())
+    ...
+```
 
-## How to use
-- `interface.py` is a client-side-stateless wrapper of the Websocket interface. The only benefit is static type check.  
-  - to be replaced by openai-agents-python
-- `client.py` is built on top of `interface.py`. It is stateful, providing convenient client-side representations of the session.  
+- `openai_realtime_api_utils.hook_handlers`: run a session with your handlers.  
+- `openai_realtime_api_utils.middlewares`
+  - `.TrackConfig`: Keep track of session config.  
+  - `.TrackConversation`: Client-side representation of the conversation(s), synced by events.  
+  - `.GiveClientEventId`: Auto-fill client event id.  
+  - `.PrintEvents`: Print events for debug.  
 
 ## Style
 - Functional programming.
 - Dependency injection. 
+- Middleware event handlers.  

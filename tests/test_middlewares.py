@@ -35,18 +35,22 @@ async def main():
 
     async with a_r.connect(
         model='gpt-realtime-mini',
-    ) as conn:
-        with hook_handlers(conn, [
-            track_config.server_event_handler,
-            track_conversation.server_event_handler,
-            middlewares.PrintEvents().server_event_handler,
-            f, 
-        ], [
-            middlewares.GiveClientEventId().client_event_handler, 
-            track_config.client_event_handler,
-            track_conversation.client_event_handler,
-            middlewares.PrintEvents().client_event_handler,
-        ]) as (keep_receiving, send):
+    ) as connection:
+        with hook_handlers(
+            connection, 
+            serverEventHandlers = [
+                track_config.server_event_handler,
+                track_conversation.server_event_handler,
+                middlewares.PrintEvents().server_event_handler,
+                f, 
+            ], 
+            clientEventHandlers = [
+                middlewares.GiveClientEventId().client_event_handler, 
+                track_config.client_event_handler,
+                track_conversation.client_event_handler,
+                middlewares.PrintEvents().client_event_handler,
+            ],
+        ) as (keep_receiving, send):
             asyncio.create_task(keep_receiving())
 
             await send(tp_rt.SessionUpdateEventParam(
