@@ -1,7 +1,7 @@
 [project]
 name = "openai-realtime-api-utils"
-version = "0.1.0"
-description = "openai_realtime_api_utils"
+version = "0.1.1"
+description = " Python middlewares over the WebSocket of OpenAI Realtime API. "
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
