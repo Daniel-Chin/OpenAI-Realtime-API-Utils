@@ -9,8 +9,9 @@ import openai.types.realtime as tp_rt
 from openai.types.realtime.realtime_server_event import ConversationItemRetrieved
 
 from ..shared import (
-    str_item_omit_audio, str_server_event_omit_audio, 
-    parse_client_event_param, item_from_param, PART_TO_CONTENT_TYPE, 
+    str_client_event_omit_audio, str_server_event_omit_audio, 
+    str_item_omit_audio, parse_client_event_param, 
+    item_from_param, PART_TO_CONTENT_TYPE, 
 )
 from ..conversation_group import ConversationGroup
 
@@ -112,6 +113,7 @@ class TrackConversation:
                     if is_locally_synced:
                         assert item_id in self.parent.all_items
                         old_item = self.parent.all_items[item_id]
+                        old_item.status = event.item.status  # type: ignore
                         assert old_item == event.item, (
                             'I just thought the ConversationItemAdded after the ConversationItemCreateEvent would have identical item.',
                             old_item, event.item, 
@@ -156,14 +158,16 @@ class TrackConversation:
         self.server_events: dict[str, tuple[
             tp_rt.RealtimeServerEvent, datetime, 
         ]] = {}
+        self.client_events: dict[str, tuple[
+            tp_rt.RealtimeClientEventParam, datetime, 
+        ]] = {}
         self.impatience = __class__.Impatience(self)
         self.init_time = datetime.now()
 
     def server_event_handler(
         self, event: tp_rt.RealtimeServerEvent, _, 
     ) -> tp_rt.RealtimeServerEvent:
-        datetime_ = datetime.now()
-        self.server_events[event.event_id] = (event, datetime_)
+        self.server_events[event.event_id] = (event, datetime.now())
         match event:
             case tp_rt.ConversationItemCreatedEvent():
                 raise RuntimeError('Beta API signature detected')
@@ -287,6 +291,9 @@ class TrackConversation:
     def client_event_handler(
         self, event_param: tp_rt.RealtimeClientEventParam, _, 
     ) -> tp_rt.RealtimeClientEventParam:
+        event_id = event_param.get('event_id', None)
+        if event_id is not None:
+            self.client_events[event_id] = (event_param, datetime.now())
         event = parse_client_event_param(event_param)
         match event:
             case tp_rt.ConversationItemCreateEvent():
@@ -323,9 +330,15 @@ class TrackConversation:
             if event_id is None:
                 buf.append('  <unindexed client event>')
                 continue
-            event, datetime_ = self.server_events[event_id]
+            try:
+                event,       datetime_ = self.server_events[event_id]
+            except KeyError:
+                event_param, datetime_ = self.client_events[event_id]
+                str_event = str_client_event_omit_audio(event_param)
+            else:
+                str_event = str_server_event_omit_audio(event)
             dt = (datetime_ - self.init_time).total_seconds()
-            buf.append(f'  {dt:5.1f} {event_id:28s} {str_server_event_omit_audio(event)}')
+            buf.append(f'  {dt:5.1f} {event_id:28s} {str_event}')
         return '\n  '.join(buf)[1:]
     
     def print_conversation(self, print_fn: tp.Callable = print) -> None:
