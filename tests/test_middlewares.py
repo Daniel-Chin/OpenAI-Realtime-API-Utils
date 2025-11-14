@@ -1,6 +1,7 @@
 # ruff: noqa: F401, F841
 
-import os, sys, pathlib
+import os
+import sys
 import asyncio
 
 import openai
