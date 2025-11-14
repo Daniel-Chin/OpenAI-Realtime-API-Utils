@@ -21,6 +21,14 @@ async def main():
     a_r = AsyncRealtime(a_oa)
     track_config = middlewares.TrackConfig()
     track_conversation = middlewares.TrackConversation()
+
+    def f(e, _):
+        print('<config>')
+        print(track_config.session_config)
+        print('</config>')
+        track_conversation.print_conversation()
+        return e
+
     async with a_r.connect(
         model='gpt-realtime-mini',
     ) as conn:
@@ -28,6 +36,7 @@ async def main():
             track_config.server_event_handler,
             track_conversation.server_event_handler,
             middlewares.PrintEvents().server_event_handler,
+            f, 
         ], [
             middlewares.GiveClientEventId().client_event_handler, 
             track_config.client_event_handler,

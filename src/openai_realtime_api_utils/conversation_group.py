@@ -97,3 +97,6 @@ class ConversationGroup:
         assert cell.item_id not in self.out_of_band_cells
         self.out_of_band_cells[cell.item_id] = cell
         return cell
+    
+    def iter_main_conversation(self):
+        yield from self._main_conversation

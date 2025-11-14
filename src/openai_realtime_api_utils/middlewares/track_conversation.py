@@ -12,7 +12,7 @@ from ..shared import (
     str_item_omit_audio, str_server_event_omit_audio, 
     parse_client_event_param, item_from_param, PART_TO_CONTENT_TYPE, 
 )
-from ..conversation import ConversationGroup
+from ..conversation_group import ConversationGroup
 
 class TrackConversation:
     '''
@@ -158,27 +158,6 @@ class TrackConversation:
         ]] = {}
         self.impatience = __class__.Impatience(self)
         self.init_time = datetime.now()
-
-    def repr_cell(self, cell: ConversationGroup.Cell):
-        buf = ['']
-        buf.append('current state:')
-        item = self.all_items[cell.item_id]
-        buf.append(f'  {str_item_omit_audio(item)}')
-        if cell.audio_truncate is not None:
-            content_index, audio_end_ms = cell.audio_truncate
-            buf.append(f'truncate: {content_index = }, {audio_end_ms = }')
-        if cell.response_id is not None:
-            metadata = self.responses[cell.response_id].metadata
-            buf.append(f'metadata: {metadata}')
-        buf.append('touched by:')
-        for event_id in cell.touched_by_event_ids:
-            if event_id is None:
-                buf.append('  <unindexed client event>')
-                continue
-            event, datetime_ = self.server_events[event_id]
-            dt = (datetime_ - self.init_time).total_seconds()
-            buf.append(f'  {dt:5.1f} {event_id:28s} {str_server_event_omit_audio(event)}')
-        return '\n  '.join(buf)[1:]
 
     def server_event_handler(
         self, event: tp_rt.RealtimeServerEvent, _, 
@@ -327,3 +306,38 @@ class TrackConversation:
                 self.impatience.handle(e_p)
                 return e_p
         return event_param
+
+    def repr_cell(self, cell: ConversationGroup.Cell):
+        buf = ['']
+        buf.append('current state:')
+        item = self.all_items[cell.item_id]
+        buf.append(f'  {str_item_omit_audio(item)}')
+        if cell.audio_truncate is not None:
+            content_index, audio_end_ms = cell.audio_truncate
+            buf.append(f'truncate: {content_index = }, {audio_end_ms = }')
+        if cell.response_id is not None:
+            metadata = self.responses[cell.response_id].metadata
+            buf.append(f'metadata: {metadata}')
+        buf.append('touched by:')
+        for event_id in cell.touched_by_event_ids:
+            if event_id is None:
+                buf.append('  <unindexed client event>')
+                continue
+            event, datetime_ = self.server_events[event_id]
+            dt = (datetime_ - self.init_time).total_seconds()
+            buf.append(f'  {dt:5.1f} {event_id:28s} {str_server_event_omit_audio(event)}')
+        return '\n  '.join(buf)[1:]
+    
+    def print_conversation(self, print_fn: tp.Callable = print) -> None:
+        print_fn('<conversation_group>')
+        print_fn('<main conversation>')
+        for i, cell in enumerate(self.conversation_group.iter_main_conversation()):
+            print_fn('-' * 8, i, '-' * 8)
+            print_fn(self.repr_cell(cell))
+        print_fn('</main conversation>')
+        print_fn('<out-of-band items>')
+        for i, cell in enumerate(self.conversation_group.out_of_band_cells.values()):
+            print_fn('-' * 8, i, '-' * 8)
+            print_fn(self.repr_cell(cell))
+        print_fn('</out-of-band items>')
+        print_fn('</conversation_group>')
