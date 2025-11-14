@@ -24,9 +24,13 @@ async def main():
 
     def f(e, _):
         print('<config>')
-        print(track_config.session_config)
+        if track_config.session_config is None:
+            print('Unavailable, or invalidated.')
+        else:
+            print(track_config.session_config.model_dump())
         print('</config>')
         track_conversation.print_conversation()
+        print()
         return e
 
     async with a_r.connect(

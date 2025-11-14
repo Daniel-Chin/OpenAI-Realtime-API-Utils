@@ -338,7 +338,7 @@ class TrackConversation:
             else:
                 str_event = str_server_event_omit_audio(event)
             dt = (datetime_ - self.init_time).total_seconds()
-            buf.append(f'  {dt:5.1f} {event_id:28s} {str_event}')
+            buf.append(f'  [{dt:5.1f}] {event_id:28s} {str_event}')
         return '\n  '.join(buf)[1:]
     
     def print_conversation(self, print_fn: tp.Callable = print) -> None:
@@ -348,9 +348,10 @@ class TrackConversation:
             print_fn('-' * 8, i, '-' * 8)
             print_fn(self.repr_cell(cell))
         print_fn('</main conversation>')
-        print_fn('<out-of-band items>')
-        for i, cell in enumerate(self.conversation_group.out_of_band_cells.values()):
-            print_fn('-' * 8, i, '-' * 8)
-            print_fn(self.repr_cell(cell))
-        print_fn('</out-of-band items>')
+        if self.conversation_group.out_of_band_cells:
+            print_fn('<out-of-band items>')
+            for i, cell in enumerate(self.conversation_group.out_of_band_cells.values()):
+                print_fn('-' * 8, i, '-' * 8)
+                print_fn(self.repr_cell(cell))
+            print_fn('</out-of-band items>')
         print_fn('</conversation_group>')
