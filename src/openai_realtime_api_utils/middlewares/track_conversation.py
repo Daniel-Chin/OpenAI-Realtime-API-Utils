@@ -57,7 +57,7 @@ class TrackConversation:
             ),
         ) -> None:
             match event_info:
-                case tp.TypedDict() as event_param:
+                case {'type': 'conversation.item.create'} as event_param:
                     item_param = event_param['item']
                     item_id = item_param.get('id', None)
                     previous_item_id = event_param['previous_item_id'] # type: ignore

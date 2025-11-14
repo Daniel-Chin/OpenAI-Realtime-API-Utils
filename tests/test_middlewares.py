@@ -1,5 +1,6 @@
 # ruff: noqa: F401, F841
 
+import os, sys, pathlib
 import asyncio
 
 import openai
@@ -7,6 +8,12 @@ from openai.resources.realtime import AsyncRealtime
 import openai.types.realtime as tp_rt
 
 from openai_realtime_api_utils import hook_handlers, middlewares
+
+LOG_STDOUT = os.getenv('LOG_STDOUT')
+if LOG_STDOUT:
+    f = open('./tests/logs/test_middlewares.log', 'w', buffering=1)  # line-buffered
+    sys.stdout = f
+    # sys.stderr = f
 
 async def main():
     a_oa = openai.AsyncOpenAI()

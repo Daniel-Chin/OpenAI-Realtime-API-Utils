@@ -9,6 +9,12 @@ from openai.types.realtime.realtime_server_event import ConversationItemRetrieve
 from openai.resources.realtime.realtime import AsyncRealtimeConnection
 from openai._models import construct_type_unchecked
 
+class L:
+    '''
+    Literals.  
+    '''
+    root = 'root'
+
 ServerEventHandler = tp.Callable[
     [tp_rt.RealtimeServerEvent, AsyncRealtimeConnection], 
     tp_rt.RealtimeServerEvent, 
@@ -129,3 +135,6 @@ def item_from_param(
         value=item_param, 
         type_=tp.cast(tp.Any, tp_rt.ConversationItem),
     )
+
+def is_root(previous_item_id: str | None) -> bool:
+    return previous_item_id is None or previous_item_id == L.root

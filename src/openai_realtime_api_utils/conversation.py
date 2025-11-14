@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .shared import L, is_root
+
 class ConversationGroup:
     @dataclass
     class Cell:
@@ -36,15 +38,23 @@ class ConversationGroup:
             return self._main_conversation[self.seek(item_id)]
         return self.out_of_band_cells[item_id]
     
+    def index_after(
+        self, previous_item_id: str | None, 
+    ) -> int:
+        if is_root(previous_item_id):
+            return 0
+        assert previous_item_id is not None
+        return self.seek(previous_item_id) + 1
+    
     def insert_after(
         self, cell: Cell,
         previous_item_id: str | None, 
     ) -> Cell:
+        assert cell.item_id != L.root
         assert not [x for x in self.out_of_band_cells.values() if x.item_id == cell.item_id]
-        self._main_conversation.insert((
-            0 if previous_item_id is None 
-            else self.seek(previous_item_id) + 1
-        ), cell)
+        self._main_conversation.insert(
+            self.index_after(previous_item_id), cell, 
+        )
         assert cell.item_id not in self._main_conversation_item_ids
         self._main_conversation_item_ids.add(cell.item_id)
         return cell
@@ -54,16 +64,15 @@ class ConversationGroup:
         previous_item_id: str | None, 
     ) -> Cell:
         cell = self._main_conversation.pop(self.seek(item_id))
-        self._main_conversation.insert((
-            0 if previous_item_id is None 
-            else self.seek(previous_item_id) + 1
-        ), cell)
+        self._main_conversation.insert(
+            self.index_after(previous_item_id), cell, 
+        )
         return cell
     
-    def previousItemIdOf(self, item_id: str) -> str | None:
+    def previousItemIdOf(self, item_id: str) -> str:
         cell_i = self.seek(item_id)
         if cell_i == 0:
-            return None
+            return L.root
         else:
             return self._main_conversation[cell_i - 1].item_id
     
@@ -76,7 +85,7 @@ class ConversationGroup:
     
     def last_item_id(self) -> str:
         if len(self._main_conversation) == 0:
-            return 'root'
+            return L.root
         else:
             return self._main_conversation[-1].item_id
     
