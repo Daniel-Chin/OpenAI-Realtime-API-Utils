@@ -7,8 +7,10 @@ import asyncio
 import openai
 from openai.resources.realtime import AsyncRealtime
 import openai.types.realtime as tp_rt
+from agents.realtime import RealtimePlaybackTracker
 
 from openai_realtime_api_utils import hook_handlers, middlewares
+from openai_realtime_api_utils.pyaudio_utils import py_audio_context
 
 LOG_STDOUT = os.getenv('LOG_STDOUT')
 if LOG_STDOUT:
@@ -19,10 +21,8 @@ if LOG_STDOUT:
 async def main():
     a_oa = openai.AsyncOpenAI()
     a_r = AsyncRealtime(a_oa)
-    track_config = middlewares.TrackConfig()
-    track_conversation = middlewares.TrackConversation()
 
-    def f(e, _):
+    def f(e, metadata, _):
         print('<config>')
         if track_config.session_config is None:
             print('Unavailable, or invalidated.')
@@ -30,62 +30,76 @@ async def main():
             print(track_config.session_config.model_dump())
         print('</config>')
         track_conversation.print_conversation()
-        print()
-        return e
+        return e, metadata
 
-    async with a_r.connect(
-        model='gpt-realtime-mini',
-    ) as connection:
-        with hook_handlers(
-            connection, 
-            serverEventHandlers = [
-                track_config.server_event_handler,
-                track_conversation.server_event_handler,
-                middlewares.PrintEvents().server_event_handler,
-                f, 
-            ], 
-            clientEventHandlers = [
-                middlewares.GiveClientEventId().client_event_handler, 
-                track_config.client_event_handler,
-                track_conversation.client_event_handler,
-                middlewares.PrintEvents().client_event_handler,
-            ],
-        ) as (keep_receiving, send):
-            asyncio.create_task(keep_receiving())
+    with py_audio_context() as pa:
+        async with a_r.connect(
+            model='gpt-realtime-mini',
+        ) as connection:
+            track_config = middlewares.TrackConfig()
+            track_conversation = middlewares.TrackConversation()
+            playback_tracker = RealtimePlaybackTracker()
+            audio_player, interrupt, iap_server_handlers, register_send_with_handlers = middlewares.interruptable_audio_player(
+                connection, 
+                playback_tracker,
+                track_config,
+                track_conversation,
+                pa, 
+                n_samples_per_page=2048,
+            )
 
-            await send(tp_rt.SessionUpdateEventParam(
-                type='session.update',
-                session=tp_rt.RealtimeSessionCreateRequestParam(
-                    type='realtime',
-                    audio=tp_rt.RealtimeAudioConfigParam(
-                        input=tp_rt.RealtimeAudioConfigInputParam(
-                            turn_detection=None,
+            with hook_handlers(
+                connection, 
+                serverEventHandlers = [
+                    track_config.server_event_handler,
+                    track_conversation.server_event_handler,
+                    *iap_server_handlers,
+                    middlewares.PrintEvents().server_event_handler,
+                    f, 
+                ], 
+                clientEventHandlers = [
+                    middlewares.GiveClientEventId().client_event_handler, 
+                    track_config.client_event_handler,
+                    track_conversation.client_event_handler,
+                    middlewares.PrintEvents().client_event_handler,
+                ],
+            ) as (keep_receiving, send):
+                register_send_with_handlers(send)
+                asyncio.create_task(keep_receiving())
+
+                await send(tp_rt.SessionUpdateEventParam(
+                    type='session.update',
+                    session=tp_rt.RealtimeSessionCreateRequestParam(
+                        type='realtime',
+                        audio=tp_rt.RealtimeAudioConfigParam(
+                            input=tp_rt.RealtimeAudioConfigInputParam(
+                                turn_detection=None,
+                            ),
                         ),
                     ),
-                ),
-            ))
+                ))
 
-            await send(tp_rt.ConversationItemCreateEventParam(
-                type='conversation.item.create',
-                item=tp_rt.RealtimeConversationItemUserMessageParam(
-                    type='message',
-                    role='user',
-                    content=[tp_rt.realtime_conversation_item_user_message_param.Content(
-                        type='input_text',
-                        text='What is three plus four? Be brief.',
-                    )],
-                ),
-            ))
-            await send(tp_rt.ResponseCreateEventParam(
-                type='response.create',
-                response=tp_rt.RealtimeResponseCreateParamsParam(
-                    # conversation='none',
-                    metadata=dict(laser='69'),
-                    output_modalities=['text'],
-                ),
-            ))
+                await send(tp_rt.ConversationItemCreateEventParam(
+                    type='conversation.item.create',
+                    item=tp_rt.RealtimeConversationItemUserMessageParam(
+                        type='message',
+                        role='user',
+                        content=[tp_rt.realtime_conversation_item_user_message_param.Content(
+                            type='input_text',
+                            text='What is three plus four? Be brief.',
+                        )],
+                    ),
+                ))
+                await send(tp_rt.ResponseCreateEventParam(
+                    type='response.create',
+                    response=tp_rt.RealtimeResponseCreateParamsParam(
+                        # conversation='none',
+                        metadata=dict(laser='69'),
+                        # output_modalities=['text'],
+                    ),
+                ))
 
-            await asyncio.sleep(3)
+                await asyncio.sleep(5)
 
 if __name__ == "__main__":
     asyncio.run(main())

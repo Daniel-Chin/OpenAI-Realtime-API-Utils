@@ -11,13 +11,14 @@ def interruptable_audio_player(
     playback_tracker: RealtimePlaybackTracker, 
     track_config: TrackConfig,
     track_conversation: TrackConversation,
-    pa: pyaudio.PyAudio, output_device_index: int, 
+    pa: pyaudio.PyAudio, 
     n_samples_per_page: int = 2048, 
+    output_device_index: int | None = None, 
 ):
     audio_player = AudioPlayer(
         pa, 
-        output_device_index, 
         n_samples_per_page, 
+        output_device_index, 
         playback_tracker,
         skip_delta_metadata_keyword=Interrupt.IS_DURING_USER_SPEECH,
     )

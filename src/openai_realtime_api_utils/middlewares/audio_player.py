@@ -157,14 +157,15 @@ class AudioPlayer:
     roster_manager = MetadataHandlerRosterManager('AudioPlayer')
 
     def __init__(
-        self, pa: pyaudio.PyAudio, output_device_index: int, 
+        self, pa: pyaudio.PyAudio, 
         n_samples_per_page: int = 2048, 
+        output_device_index: int | None = None, 
         playback_tracker: RealtimePlaybackTracker | None = None,
         skip_delta_metadata_keyword: str | None = None,
     ):
         self.pa = pa
-        self.output_device_index = output_device_index
         self.n_samples_per_page = n_samples_per_page
+        self.output_device_index = output_device_index
         self.playback_tracker = playback_tracker
         self.skip_delta_metadata_keyword = skip_delta_metadata_keyword
         self.format_info: FormatInfo | None = None
@@ -185,7 +186,7 @@ class AudioPlayer:
             )
         speech = self.speeches[0]
         data, n_content_bytes = speech.buffer.pop()
-        while self.speeches[0].is_mission_accomplished():
+        while self.speeches and self.speeches[0].is_mission_accomplished():
             self.speeches.popleft()
         if self.playback_tracker is not None:
             self.playback_tracker.on_play_ms(
@@ -193,7 +194,10 @@ class AudioPlayer:
                 speech.content_index, 
                 n_content_bytes * self.format_info.ms_per_byte,  # type: ignore
             )
-        return (data, pyaudio.paContinue)
+        return (
+            bytes(data), # what a letdown! "argument 1 must be read-only bytes-like object, not memoryview"
+            pyaudio.paContinue, 
+        )
 
     @contextmanager
     def context(self):

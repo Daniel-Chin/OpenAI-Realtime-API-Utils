@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import pyaudio
 
 @contextmanager
-def py_audio():
+def py_audio_context():
     pa = pyaudio.PyAudio()
     try:
         yield pa
