@@ -156,6 +156,9 @@ class Speech:
         return not self.has_more_to_come and self.buffer.is_empty()
 
 class RealtimePlaybackTrackerThreadSafe:
+    '''
+    Should really be a queue instead.  
+    '''
     def __init__(
         self, inner: RealtimePlaybackTracker, /, 
         parent: AudioPlayer, 
