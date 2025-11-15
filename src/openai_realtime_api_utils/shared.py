@@ -16,12 +16,12 @@ class L:
     root = 'root'
 
 ServerEventHandler = tp.Callable[
-    [tp_rt.RealtimeServerEvent, AsyncRealtimeConnection], 
-    tp_rt.RealtimeServerEvent, 
+    [tp_rt.RealtimeServerEvent, dict, AsyncRealtimeConnection], 
+    tuple[tp_rt.RealtimeServerEvent | None, dict], 
 ]
 ClientEventHandler = tp.Callable[
-    [tp_rt.RealtimeClientEventParam, AsyncRealtimeConnection], 
-    tp_rt.RealtimeClientEventParam, 
+    [tp_rt.RealtimeClientEventParam, dict, AsyncRealtimeConnection], 
+    tuple[tp_rt.RealtimeClientEventParam | None, dict], 
 ]
 
 PART_TO_CONTENT_TYPE: dict[
@@ -55,12 +55,20 @@ def hook_handlers(
             except websockets.exceptions.ConnectionClosedOK:
                 print('WebSocket connection closed normally')
                 return
+            metadata = {}
             for sHandler in serverEventHandlers:
-                event = sHandler(event, connection)
+                maybe_event, metadata = sHandler(event, metadata, connection)
+                if maybe_event is None:
+                    break
+                event = maybe_event
     
     async def send(event: tp_rt.RealtimeClientEventParam) -> None:
+        metadata = {}
         for cHandler in clientEventHandlers:
-            event = cHandler(event, connection)
+            maybe_event, metadata = cHandler(event, metadata, connection)
+            if maybe_event is None:
+                break
+            event = maybe_event
         await connection.send(event)
     
     yield keep_receiving, send

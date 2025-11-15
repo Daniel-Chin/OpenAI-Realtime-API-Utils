@@ -7,7 +7,8 @@ import openai.types.realtime as tp_rt
 from openai.resources.realtime.realtime import AsyncRealtimeConnection
 from agents.realtime import RealtimePlaybackTracker
 
-from . import TrackConfig, TrackConversation
+from .shared import MetadataHandlerRosterManager
+from . import TrackConfig, TrackConversation, AudioPlayer
 
 class Interrupt:
     '''
@@ -25,6 +26,9 @@ class Interrupt:
     - Unless the item has already been interrupted.
         - avoids repeated interrupts when server events are delayed.
     '''
+
+    roster_manager = MetadataHandlerRosterManager('Interrupt')
+
     def __init__(
         self, 
         connection: AsyncRealtimeConnection, 
@@ -150,16 +154,22 @@ class Interrupt:
             ),
         )
 
+    @roster_manager.decorate
     def server_event_handler(
-        self, event: tp_rt.RealtimeServerEvent, _, 
-    ) -> tp_rt.RealtimeServerEvent:
+        self, event: tp_rt.RealtimeServerEvent, metadata: dict, _,
+    ) -> tuple[tp_rt.RealtimeServerEvent | None, dict]:
         match event:
             case tp_rt.InputAudioBufferSpeechStartedEvent():
                 self.is_user_talking = True
                 self._on_speech_started()
+                out_event = event
             case tp_rt.InputAudioBufferSpeechStoppedEvent():
                 self.is_user_talking = False
+                out_event = event
             case tp_rt.ResponseAudioDeltaEvent():
+                assert not self.roster_manager.is_in_roster(
+                    AudioPlayer.roster_manager.handler_name, metadata, 
+                ), 'AudioPlayer must handle after Interrupt.'
                 if self.is_user_talking:
                     state = self.playback_tracker.get_state()
                     if state['current_item_id'] == event.item_id:
@@ -172,4 +182,9 @@ class Interrupt:
                         event.content_index,
                         elapsed,
                     )
-        return event
+                    out_event = None
+                else:
+                    out_event = event
+            case _:
+                out_event = event
+        return out_event, metadata

@@ -13,6 +13,7 @@ from ..shared import (
     str_item_omit_audio, parse_client_event_param, 
     item_from_param, PART_TO_CONTENT_TYPE, 
 )
+from .shared import MetadataHandlerRosterManager
 from ..conversation_group import ConversationGroup
 
 class TrackConversation:
@@ -39,6 +40,8 @@ class TrackConversation:
     - Slowly synced, disregarding delta:  
       - assistant tool call.  
     '''
+
+    roster_manager = MetadataHandlerRosterManager('TrackConversation')
 
     class Impatience:
         def __init__(self, parent: TrackConversation):
@@ -164,9 +167,10 @@ class TrackConversation:
         self.impatience = __class__.Impatience(self)
         self.init_time = datetime.now()
 
+    @roster_manager.decorate
     def server_event_handler(
-        self, event: tp_rt.RealtimeServerEvent, _, 
-    ) -> tp_rt.RealtimeServerEvent:
+        self, event: tp_rt.RealtimeServerEvent, metadata: dict, _,
+    ) -> tuple[tp_rt.RealtimeServerEvent, dict]:
         self.server_events[event.event_id] = (event, datetime.now())
         match event:
             case tp_rt.ConversationItemCreatedEvent():
@@ -286,11 +290,13 @@ class TrackConversation:
                 assert response.id is not None
                 assert response.id in self.responses
                 self.responses[response.id] = response
-        return event
+        return event, metadata
     
+    @roster_manager.decorate
     def client_event_handler(
-        self, event_param: tp_rt.RealtimeClientEventParam, _, 
-    ) -> tp_rt.RealtimeClientEventParam:
+        self, event_param: tp_rt.RealtimeClientEventParam, 
+        metadata: dict, _,
+    ) -> tuple[tp_rt.RealtimeClientEventParam, dict]:
         event_id = event_param.get('event_id', None)
         if event_id is not None:
             self.client_events[event_id] = (event_param, datetime.now())
@@ -311,8 +317,8 @@ class TrackConversation:
                 e_p['item']['id'] = item_id
                 e_p['previous_item_id'] = previous_item_id
                 self.impatience.handle(e_p)
-                return e_p
-        return event_param
+                return e_p, metadata
+        return event_param, metadata
 
     def repr_cell(self, cell: ConversationGroup.Cell):
         buf = ['']
