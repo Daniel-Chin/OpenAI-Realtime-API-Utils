@@ -18,17 +18,17 @@ class PrintEvents:
         filter_client: tp.Optional[tp.Callable[[
             tp_rt.RealtimeClientEventParam
         ], bool]] = None,
-        transform_server_event: tp.Callable[[
+        str_server_event: tp.Callable[[
             tp_rt.RealtimeServerEvent
         ], str] = str_server_event_omit_audio,
-        transform_client_event: tp.Callable[[
+        str_client_event: tp.Callable[[
             tp_rt.RealtimeClientEventParam
         ], str] = str_client_event_omit_audio,
     ):
         self.filter_server = filter_server
         self.filter_client = filter_client
-        self.transform_server_event = transform_server_event
-        self.transform_client_event = transform_client_event
+        self.str_server_event = str_server_event
+        self.str_client_event = str_client_event
     
     @roster_manager.decorate
     def server_event_handler(
@@ -37,7 +37,9 @@ class PrintEvents:
         metadata: dict, _, 
     ) -> tuple[tp_rt.RealtimeServerEvent, dict]:
         if self.filter_server is None or self.filter_server(event):
-            print(f'Server: {self.transform_server_event(event)}')
+            print(f'Server: {self.str_server_event(event)}')
+            print(f'event {metadata = }')
+            print()
         return event, metadata
     
     @roster_manager.decorate
@@ -47,5 +49,7 @@ class PrintEvents:
         metadata: dict, _, 
     ) -> tuple[tp_rt.RealtimeClientEventParam, dict]:
         if self.filter_client is None or self.filter_client(eventParam):
-            print(f'Client: {self.transform_client_event(eventParam)}')
+            print(f'Client: {self.str_client_event(eventParam)}')
+            print(f'event {metadata = }')
+            print()
         return eventParam, metadata
