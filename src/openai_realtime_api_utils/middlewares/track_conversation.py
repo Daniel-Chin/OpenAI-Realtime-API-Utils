@@ -170,7 +170,7 @@ class TrackConversation:
         self.server_events[event.event_id] = (event, datetime.now())
         match event:
             case tp_rt.ConversationItemCreatedEvent():
-                raise RuntimeError('Beta API signature detected')
+                raise RuntimeError('Beta API signature detected. Hint: are you a time traveler?')
             case tp_rt.ConversationItemAdded(item=item):
                 self.impatience.handle(event)
             case (
