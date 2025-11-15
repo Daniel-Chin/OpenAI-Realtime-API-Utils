@@ -5,6 +5,8 @@ from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass
 from base64 import b64decode
+import asyncio
+import threading
 
 import pyaudio
 import openai.types.realtime as tp_rt
@@ -153,6 +155,45 @@ class Speech:
     def is_mission_accomplished(self) -> bool:
         return not self.has_more_to_come and self.buffer.is_empty()
 
+class RealtimePlaybackTrackerThreadSafe:
+    def __init__(
+        self, inner: RealtimePlaybackTracker, /, 
+        parent: AudioPlayer, 
+    ):
+        self.inner = inner
+        self.parent = parent
+
+        self.asyncio_loop = asyncio.get_event_loop()
+        self.doorbell = asyncio.Event()
+
+        self.buffer_speech: Speech | None = None
+        self.buffer_n_content_bytes: int = 0
+
+        self.keep_worker = True
+        self.task = asyncio.create_task(self.worker())
+    
+    def close(self) -> None:
+        self.keep_worker = False
+        self.doorbell.set()
+    
+    async def worker(self) -> None:
+        while self.keep_worker:
+            await self.doorbell.wait()
+            self.doorbell.clear()
+            assert self.buffer_speech is not None
+            assert self.parent.format_info is not None
+            with self.parent.lock:
+                while self.parent.speeches and self.parent.speeches[0].is_mission_accomplished():
+                    self.parent.speeches.popleft()
+                self.inner.on_play_ms(
+                    self.buffer_speech.item_id, 
+                    self.buffer_speech.content_index, 
+                    self.buffer_n_content_bytes * self.parent.format_info.ms_per_byte,
+                )
+    
+    def set_doorbell_threadsafe(self) -> None:
+        self.asyncio_loop.call_soon_threadsafe(self.doorbell.set)
+
 class AudioPlayer:
     roster_manager = MetadataHandlerRosterManager('AudioPlayer')
 
@@ -166,11 +207,14 @@ class AudioPlayer:
         self.pa = pa
         self.n_samples_per_page = n_samples_per_page
         self.output_device_index = output_device_index
-        self.playback_tracker = playback_tracker
+        self.playback_tracker_thread_safe = None if (
+            playback_tracker is None
+        ) else RealtimePlaybackTrackerThreadSafe(playback_tracker, self)
         self.skip_delta_metadata_keyword = skip_delta_metadata_keyword
         self.format_info: FormatInfo | None = None
         self.speeches: deque[Speech] = deque()
         self.stream: pyaudio.Stream | None = None
+        self.lock = threading.Lock()
     
     def set_format(self, format: tp_rt.RealtimeAudioFormats) -> None:
         if self.format_info is None:
@@ -179,26 +223,23 @@ class AudioPlayer:
             assert self.format_info.format == format, 'Changing audio format mid-stream is unsupported.'
     
     def on_audio_out(self, in_data, frame_count, time_info, status):
-        if not self.speeches:
-            return (
-                self.format_info.silence_page, # type: ignore
-                pyaudio.paContinue, 
-            )
-        speech = self.speeches[0]
-        data, n_content_bytes = speech.buffer.pop()
-        while self.speeches and self.speeches[0].is_mission_accomplished():
-            self.speeches.popleft()
-        if self.playback_tracker is not None:
-            self.playback_tracker.on_play_ms(
-                speech.item_id, 
-                speech.content_index, 
-                n_content_bytes * self.format_info.ms_per_byte,  # type: ignore
-            )
+        with self.lock:
+            if not self.speeches:
+                return (
+                    self.format_info.silence_page, # type: ignore
+                    pyaudio.paContinue, 
+                )
+            speech = self.speeches[0]
+            data, n_content_bytes = speech.buffer.pop()
+            if self.playback_tracker_thread_safe is not None:
+                self.playback_tracker_thread_safe.buffer_speech = speech
+                self.playback_tracker_thread_safe.buffer_n_content_bytes = n_content_bytes
+                self.playback_tracker_thread_safe.set_doorbell_threadsafe()
         return (
             bytes(data), # what a letdown! "argument 1 must be read-only bytes-like object, not memoryview"
             pyaudio.paContinue, 
         )
-
+    
     @contextmanager
     def context(self):
         try:
@@ -208,6 +249,9 @@ class AudioPlayer:
                 self.stream.stop_stream()
                 self.stream.close()
                 self.stream = None
+            if self.playback_tracker_thread_safe is not None:
+                self.playback_tracker_thread_safe.close()
+                self.playback_tracker_thread_safe = None
 
     def get_speech(
         self, item_id: str, content_index: int,
@@ -262,7 +306,9 @@ class AudioPlayer:
                     buffer = self.get_speech(
                         event.item_id, event.content_index, 
                     ).buffer
-                    buffer.append(b64decode(event.delta))
+                    s = b64decode(event.delta)
+                    with self.lock:
+                        buffer.append(s)
             case tp_rt.ResponseContentPartAddedEvent():
                 assert self.format_info is not None, (
                     'Looks like a speech event arrived before session config.',
@@ -273,7 +319,8 @@ class AudioPlayer:
                         content_index=event.content_index,
                         buffer=Buffer(self.format_info),
                     )
-                    self.speeches.append(speech)
+                    with self.lock:
+                        self.speeches.append(speech)
             case tp_rt.ResponseContentPartDoneEvent():
                 if event.part.type == 'audio':
                     speech = self.get_speech(
@@ -284,5 +331,5 @@ class AudioPlayer:
     
     def interrupt(self):
         self.speeches.clear()
-        if self.playback_tracker is not None:
-            self.playback_tracker.on_interrupted()
+        if self.playback_tracker_thread_safe is not None:
+            self.playback_tracker_thread_safe.inner.on_interrupted()
