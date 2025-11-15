@@ -13,5 +13,8 @@ from .track_config import TrackConfig
 from .track_conversation import TrackConversation
 from .print_events import PrintEvents
 from .interrupt import Interrupt
-from .audio_player import AudioPlayer
-from .interruptable_audio_player import interruptable_audio_player
+try:    # optional-dependency: local-audio
+    from .audio_player import AudioPlayer
+    from .interruptable_audio_player import interruptable_audio_player
+except ImportError:
+    pass
