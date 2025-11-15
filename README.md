@@ -25,7 +25,9 @@ with hook_handlers(
   - `.TrackConfig`: Keep track of session config.  
   - `.TrackConversation`: Client-side representation of the conversation(s), synced by events.  
   - `.GiveClientEventId`: Auto-fill client event id.  
-  - `.Interrupt`: The user may interrupt assistant speech.
+  - `.Interrupt`: The user may interrupt assistant speech.  
+  - `.AudioPlayer`: Host system audio playback.  
+  - `.interruptable_audio_player`: `.Interrupt` and `.AudioPlayer` in gift wraps.  
   - `.PrintEvents`: Print events for debug.  
 
 ## Style

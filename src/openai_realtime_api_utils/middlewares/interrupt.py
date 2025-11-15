@@ -8,7 +8,8 @@ from openai.resources.realtime.realtime import AsyncRealtimeConnection
 from agents.realtime import RealtimePlaybackTracker
 
 from .shared import MetadataHandlerRosterManager
-from . import TrackConfig, TrackConversation, AudioPlayer
+from .track_config import TrackConfig
+from .track_conversation import TrackConversation
 
 class Interrupt:
     '''
@@ -27,21 +28,25 @@ class Interrupt:
         - avoids repeated interrupts when server events are delayed.
     '''
 
+    IS_DURING_USER_SPEECH = 'is_during_user_speech'
+    
     roster_manager = MetadataHandlerRosterManager('Interrupt')
 
     def __init__(
         self, 
         connection: AsyncRealtimeConnection, 
-        playback_tracker: RealtimePlaybackTracker, 
         track_config: TrackConfig,
         track_conversation: TrackConversation,
+        playback_tracker: RealtimePlaybackTracker, 
         on_interrupt: tp.Callable[[], None],
+        interruptee_type: tp.Type, 
     ):
         self.connection = connection
-        self.playback_tracker = playback_tracker
         self.track_config = track_config
         self.track_conversation = track_conversation
+        self.playback_tracker = playback_tracker
         self.on_interrupt = on_interrupt
+        self.interruptee_type = interruptee_type
 
         self.is_user_talking = False
         self._send_with_handlers: tp.Callable[
@@ -158,18 +163,22 @@ class Interrupt:
     def server_event_handler(
         self, event: tp_rt.RealtimeServerEvent, metadata: dict, _,
     ) -> tuple[tp_rt.RealtimeServerEvent | None, dict]:
+        # >>> the interruptee handler must run after Interrupt handler
+        assert isinstance(
+            interruptee_roster_manager := self.interruptee_type.roster_manager, 
+            MetadataHandlerRosterManager, 
+        )
+        assert not self.roster_manager.is_in_roster(
+            interruptee_roster_manager.handler_name, metadata, 
+        )
+        # <<<
         match event:
             case tp_rt.InputAudioBufferSpeechStartedEvent():
                 self.is_user_talking = True
                 self._on_speech_started()
-                out_event = event
             case tp_rt.InputAudioBufferSpeechStoppedEvent():
                 self.is_user_talking = False
-                out_event = event
             case tp_rt.ResponseAudioDeltaEvent():
-                assert not self.roster_manager.is_in_roster(
-                    AudioPlayer.roster_manager.handler_name, metadata, 
-                ), 'AudioPlayer must handle after Interrupt.'
                 if self.is_user_talking:
                     state = self.playback_tracker.get_state()
                     if state['current_item_id'] == event.item_id:
@@ -182,9 +191,5 @@ class Interrupt:
                         event.content_index,
                         elapsed,
                     )
-                    out_event = None
-                else:
-                    out_event = event
-            case _:
-                out_event = event
-        return out_event, metadata
+                    metadata[__class__.IS_DURING_USER_SPEECH] = True
+        return event, metadata

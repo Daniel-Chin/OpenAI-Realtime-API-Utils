@@ -11,6 +11,11 @@ dependencies = [
     "websockets>=15.0.1",
 ]
 
+[project.optional-dependencies]
+local-audio = [
+    "pyaudio==0.2.14",
+]
+
 [tool.uv.sources]
 openai-agents = { git = "https://github.com/Daniel-Chin/openai-agents-python" }
 
