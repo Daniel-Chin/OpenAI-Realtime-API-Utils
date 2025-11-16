@@ -14,6 +14,7 @@ from openai.types.realtime import realtime_audio_formats
 from agents.realtime import RealtimePlaybackTracker
 
 from .shared import MetadataHandlerRosterManager
+from ..niceness import NicenessManager, ThreadPriority
 
 N_CHANNELS = 1  # OpenAI decided on mono without documenting it
 
@@ -203,6 +204,7 @@ class AudioPlayer:
         self.speeches: deque[Speech] = deque()
         self.stream: pyaudio.Stream | None = None
         self.lock = threading.Lock()
+        self.pyaudio_niceness_manager = NicenessManager()
     
     def set_format(self, format: tp_rt.RealtimeAudioFormats) -> None:
         if self.format_info is None:
@@ -211,6 +213,7 @@ class AudioPlayer:
             assert self.format_info.format == format, 'Changing audio format mid-stream is unsupported.'
     
     def on_audio_out(self, in_data, frame_count, time_info, status):
+        self.pyaudio_niceness_manager.maybe_set(ThreadPriority.high)
         with self.lock:
             if not self.speeches:
                 return (
