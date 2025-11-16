@@ -37,9 +37,9 @@ class PrintEvents:
         metadata: dict, _, 
     ) -> tuple[tp_rt.RealtimeServerEvent, dict]:
         if self.filter_server is None or self.filter_server(event):
+            print()
             print(f'Server: {self.str_server_event(event)}')
             print(f'event {metadata = }')
-            print()
         return event, metadata
     
     @roster_manager.decorate
