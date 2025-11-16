@@ -156,9 +156,6 @@ class Speech:
         return not self.has_more_to_come and self.buffer.is_empty()
 
 class RealtimePlaybackTrackerThreadSafe:
-    '''
-    Should really be a queue instead.  
-    '''
     def __init__(
         self, inner: RealtimePlaybackTracker, /, 
         parent: AudioPlayer, 
@@ -167,35 +164,23 @@ class RealtimePlaybackTrackerThreadSafe:
         self.parent = parent
 
         self.asyncio_loop = asyncio.get_event_loop()
-        self.doorbell = asyncio.Event()
-
-        self.buffer_speech: Speech | None = None
-        self.buffer_n_content_bytes: int = 0
-
-        self.keep_worker = True
-        self.task = asyncio.create_task(self.worker())
     
-    def close(self) -> None:
-        self.keep_worker = False
-        self.doorbell.set()
+    def update(self, speech: Speech, n_content_bytes: int) -> None:
+        # May run after all is destroyed.  
+        assert self.parent.format_info is not None
+        with self.parent.lock:
+            while self.parent.speeches and self.parent.speeches[0].is_mission_accomplished():
+                self.parent.speeches.popleft()
+            self.inner.on_play_ms(
+                speech.item_id, 
+                speech.content_index, 
+                n_content_bytes * self.parent.format_info.ms_per_byte,
+            )
     
-    async def worker(self) -> None:
-        while self.keep_worker:
-            await self.doorbell.wait()
-            self.doorbell.clear()
-            assert self.buffer_speech is not None
-            assert self.parent.format_info is not None
-            with self.parent.lock:
-                while self.parent.speeches and self.parent.speeches[0].is_mission_accomplished():
-                    self.parent.speeches.popleft()
-                self.inner.on_play_ms(
-                    self.buffer_speech.item_id, 
-                    self.buffer_speech.content_index, 
-                    self.buffer_n_content_bytes * self.parent.format_info.ms_per_byte,
-                )
-    
-    def set_doorbell_threadsafe(self) -> None:
-        self.asyncio_loop.call_soon_threadsafe(self.doorbell.set)
+    def update_soon_threadsafe(self, speech: Speech, n_content_bytes: int) -> None:
+        self.asyncio_loop.call_soon_threadsafe(
+            self.update, speech, n_content_bytes, 
+        )
 
 class AudioPlayer:
     roster_manager = MetadataHandlerRosterManager('AudioPlayer')
@@ -235,9 +220,9 @@ class AudioPlayer:
             speech = self.speeches[0]
             data, n_content_bytes = speech.buffer.pop()
             if self.playback_tracker_thread_safe is not None:
-                self.playback_tracker_thread_safe.buffer_speech = speech
-                self.playback_tracker_thread_safe.buffer_n_content_bytes = n_content_bytes
-                self.playback_tracker_thread_safe.set_doorbell_threadsafe()
+                self.playback_tracker_thread_safe.update_soon_threadsafe(
+                    speech, n_content_bytes,
+                )
         return (
             bytes(data), # what a letdown! "argument 1 must be read-only bytes-like object, not memoryview"
             pyaudio.paContinue, 
@@ -252,9 +237,6 @@ class AudioPlayer:
                 self.stream.stop_stream()
                 self.stream.close()
                 self.stream = None
-            if self.playback_tracker_thread_safe is not None:
-                self.playback_tracker_thread_safe.close()
-                self.playback_tracker_thread_safe = None
 
     def get_speech(
         self, item_id: str, content_index: int,
