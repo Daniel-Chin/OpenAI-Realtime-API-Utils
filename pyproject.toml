@@ -14,10 +14,12 @@ dependencies = [
 [project.optional-dependencies]
 local-audio = [
     "pyaudio==0.2.14",
+    "daniel-chin-python-alt-stdlib[pyaudio]",
 ]
 
 [tool.uv.sources]
 openai-agents = { git = "https://github.com/Daniel-Chin/openai-agents-python" }
+daniel-chin-python-alt-stdlib = { git = "https://github.com/Daniel-Chin/python-alt-stdlib" }
 
 [dependency-groups]
 dev = [

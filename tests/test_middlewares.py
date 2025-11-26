@@ -4,6 +4,7 @@ import os
 import sys
 import asyncio
 import typing as tp
+import io
 
 import openai
 from openai.resources.realtime import AsyncRealtime
@@ -15,13 +16,20 @@ from daniel_chin_python_alt_stdlib.select_audio_device import (
 )
 
 from openai_realtime_api_utils import hook_handlers, middlewares
+from openai_realtime_api_utils.middlewares.print_events import unexpected_error_only
 from openai_realtime_api_utils.pyaudio_utils import py_audio_context
 from openai_realtime_api_utils.audio_config import EXAMPLE_SPECIFICATION
+
+def FILTER_SERVER(_): return True
+def FILTER_CLIENT(_): return True
+
+# FILTER_SERVER = unexpected_error_only
+# def FILTER_CLIENT(_): return False
 
 LOG_STDOUT = os.getenv('LOG_STDOUT')
 if LOG_STDOUT:
     class TeeOutput:
-        def __init__(self, file_path, original_stream):
+        def __init__(self, file_path: str, original_stream: io.TextIOBase | tp.Any):
             self.file = open(file_path, 'w', buffering=1)  # line-buffered
             self.original_stream = original_stream
         
@@ -44,6 +52,8 @@ async def main():
     a_r = AsyncRealtime(a_oa)
 
     def f(e, metadata, _):
+        if not FILTER_SERVER(e):
+            return e, metadata
         print('<config>')
         if track_config.session_config is None:
             print('Unavailable, or invalidated.')
@@ -63,6 +73,10 @@ async def main():
             track_config = middlewares.TrackConfig()
             track_conversation = middlewares.TrackConversation()
             playback_tracker = RealtimePlaybackTracker()
+            print_events = middlewares.PrintEvents(
+                filter_server=FILTER_SERVER,
+                filter_client=FILTER_CLIENT,
+            )
             with middlewares.interruptable_audio_player(
                 connection, 
                 playback_tracker,
@@ -84,20 +98,20 @@ async def main():
                             track_conversation.server_event_handler,    # views various events
                             *iap_server_handlers,   # views e.g. response.output_audio.delta
                             stream_mic.server_event_handler,    # views session.updated
-                            # middlewares.PrintEvents().server_event_handler, # views all events
+                            print_events.server_event_handler, # views all events
                             f, 
                         ], 
                         clientEventHandlers = [
                             middlewares.GiveClientEventId().client_event_handler, # alter all events without ID
                             track_config.client_event_handler,  # views session.update
                             track_conversation.client_event_handler,    # views various events
-                            # middlewares.PrintEvents().client_event_handler, # views all events
+                            print_events.client_event_handler, # views all events
                         ],
                     ) as (keep_receiving, send):
                         iap_register_send_with_handlers(send)   # needs to send interrupt events
                         stream_mic.register_send_with_handlers(send)    # needs to send audio input
                         
-                        asyncio.create_task(keep_receiving())
+                        asyncio.create_task(keep_receiving(), name = 'keep_receiving')
 
                         await story(send)
 
@@ -111,8 +125,8 @@ async def story(send: tp.Callable[[tp_rt.RealtimeClientEventParam], tp.Awaitable
                     turn_detection=SemanticVad(
                         type='semantic_vad',
                         create_response=True,
-                        eagerness='auto',
-                        interrupt_response=True,
+                        eagerness='high',
+                        interrupt_response=False,
                     ),
                 ),
             ),

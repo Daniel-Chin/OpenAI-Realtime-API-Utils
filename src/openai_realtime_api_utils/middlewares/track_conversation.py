@@ -219,7 +219,7 @@ class TrackConversation:
                 self.conversation_group.touch(event.item_id, event.event_id)
             case tp_rt.ConversationItemTruncatedEvent():
                 cell = self.conversation_group.get_cell_from_id(event.item_id)
-                assert cell.audio_truncate is None
+                # cell.audio_truncate is potentially already set by local.  
                 cell.audio_truncate = (
                     event.content_index, event.audio_end_ms,
                 )

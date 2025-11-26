@@ -6,6 +6,7 @@ import warnings
 import openai.types.realtime as tp_rt
 from openai.resources.realtime.realtime import AsyncRealtimeConnection
 from agents.realtime import RealtimePlaybackTracker
+import websockets
 
 from .shared import MetadataHandlerRosterManager
 from .track_config import TrackConfig
@@ -139,25 +140,28 @@ class Interrupt:
             current_item_content_index, 
             round(elapsed_ms), 
         )
-        await self.send_with_handlers(
-            tp_rt.ResponseCancelEventParam(
-                type='response.cancel',
-            ),
-        )
-        await self.send_with_handlers(
-            tp_rt.ConversationItemTruncateEventParam(
-                type='conversation.item.truncate',
-                item_id=current_item_id,
-                content_index=current_item_content_index,
-                audio_end_ms=round(elapsed_ms),
-            ),
-        )
-        await self.send_with_handlers(
-            tp_rt.ConversationItemRetrieveEventParam(
-                type='conversation.item.retrieve',
-                item_id=current_item_id,
-            ),
-        )
+        try:
+            await self.send_with_handlers(
+                tp_rt.ResponseCancelEventParam(
+                    type='response.cancel',
+                ),
+            )
+            await self.send_with_handlers(
+                tp_rt.ConversationItemTruncateEventParam(
+                    type='conversation.item.truncate',
+                    item_id=current_item_id,
+                    content_index=current_item_content_index,
+                    audio_end_ms=round(elapsed_ms),
+                ),
+            )
+            await self.send_with_handlers(
+                tp_rt.ConversationItemRetrieveEventParam(
+                    type='conversation.item.retrieve',
+                    item_id=current_item_id,
+                ),
+            )
+        except websockets.ConnectionClosedOK:
+            pass
 
     @roster_manager.decorate
     def server_event_handler(

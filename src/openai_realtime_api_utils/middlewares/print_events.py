@@ -53,3 +53,24 @@ class PrintEvents:
             print(f'event {metadata = }')
             print()
         return eventParam, metadata
+
+def error_only(
+    event: tp_rt.RealtimeServerEvent,
+) -> bool:
+    match event:
+        case tp_rt.RealtimeErrorEvent():
+            return True
+        case _:
+            return False
+
+def unexpected_error_only(
+    event: tp_rt.RealtimeServerEvent,
+) -> bool:
+    match event:
+        case tp_rt.RealtimeErrorEvent():
+            if event.error.code == 'response_cancel_not_active':
+                return False
+            else:
+                return True
+        case _:
+            return False

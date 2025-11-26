@@ -1,7 +1,4 @@
-- mic input
-  - client VAD
-    - see 2023 code
-  - test interrupt
+- support interrupt_response=True,
 
 - publish it
   - PyPI

@@ -34,7 +34,7 @@ class ConfigSpecification:
     def resolve(
         self, 
         server_proposed: tp_rt.RealtimeAudioFormats | None, 
-        verbose: bool,
+        report_stats_tag: str | None,
     ) -> ConfigInfo:
         format = self.format or server_proposed
         if format is None:
@@ -45,8 +45,11 @@ class ConfigSpecification:
                 n_samples_per_page=self.n_samples_per_page, 
                 format_info=format_info, 
             )
-            if verbose:
-                print(f'{self.n_samples_per_page = } means latency = {round(info.ms_per_page)} ms')
+            if report_stats_tag is not None:
+                print(
+                    f'{self.n_samples_per_page = } means latency =', 
+                    round(info.ms_per_page), 'ms for', report_stats_tag, 
+                )
             match self.page_latency_ms:
                 case (min_, max_):
                     assert min_ <= info.ms_per_page <= max_
@@ -66,8 +69,12 @@ class ConfigSpecification:
             n_samples_per_page = round(
                 target_ms / 1000.0 * format_info.sample_rate
             )
-            if verbose:
-                print(f'Target latency = {target_ms} ms means {n_samples_per_page = }')
+            if report_stats_tag is not None:
+                print(
+                    'Target latency =', target_ms, 
+                    f'ms means {n_samples_per_page = } for', 
+                    report_stats_tag,
+                )
             return ConfigInfo(
                 n_samples_per_page=n_samples_per_page, 
                 format_info=format_info, 

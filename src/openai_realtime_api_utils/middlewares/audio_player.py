@@ -173,7 +173,7 @@ class AudioPlayer:
     
     def _set_audio_config(self, from_server: tp_rt.RealtimeAudioFormats | None) -> ConfigInfo:
         if self.config_info is None:
-            self.config_info = self.audio_config_specification.resolve(from_server, True)
+            self.config_info = self.audio_config_specification.resolve(from_server, 'output')
         else:
             assert self.config_info.format_info.format == from_server, (
                 'Changing audio format mid-stream is unsupported.'
@@ -245,12 +245,16 @@ class AudioPlayer:
                   - valid.  
                 '''
                 if not metadata.get(self.skip_delta_metadata_keyword, False):
-                    buffer = self.get_speech(
-                        event.item_id, event.content_index, 
-                    ).buffer
-                    s = b64decode(event.delta)
-                    with self.lock:
-                        buffer.append(s)
+                    try:
+                        buffer = self.get_speech(
+                            event.item_id, event.content_index, 
+                        ).buffer
+                    except KeyError:
+                        pass    # item already interrupted
+                    else:
+                        s = b64decode(event.delta)
+                        with self.lock:
+                            buffer.append(s)
             case tp_rt.ResponseContentPartAddedEvent():
                 assert self.config_info is not None, (
                     'Looks like a speech event arrived before session config.',
@@ -265,10 +269,14 @@ class AudioPlayer:
                         self.speeches.append(speech)
             case tp_rt.ResponseContentPartDoneEvent():
                 if event.part.type == 'audio':
-                    speech = self.get_speech(
-                        event.item_id, event.content_index, 
-                    )
-                    speech.has_more_to_come = False
+                    try:
+                        speech = self.get_speech(
+                            event.item_id, event.content_index, 
+                        )
+                    except KeyError:
+                        pass    # item already interrupted
+                    else:
+                        speech.has_more_to_come = False
         return event, metadata
     
     def interrupt(self):

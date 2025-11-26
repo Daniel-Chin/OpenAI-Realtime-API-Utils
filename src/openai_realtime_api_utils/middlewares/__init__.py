@@ -16,5 +16,6 @@ from .interrupt import Interrupt
 try:    # optional-dependency: local-audio
     from .audio_player import AudioPlayer
     from .interruptable_audio_player import interruptable_audio_player
+    from .stream_mic import StreamMic
 except ImportError:
     pass
