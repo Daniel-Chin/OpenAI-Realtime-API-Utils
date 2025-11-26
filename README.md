@@ -5,6 +5,10 @@ If you want to base your application/agent on OpenAI's realtime api, but:
 
 then this package is for you.  
 
+## Install
+`pip install openai-realtime-api-utils`  
+[PyPI page](https://pypi.org/project/openai-realtime-api-utils/)  
+
 ## Example
 - See the example at [./tests/test_middlewares.py](./tests/test_middlewares.py)  
 ```python

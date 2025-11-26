@@ -1,3 +1,2 @@
 - publish it
-  - PyPI
   - https://community.openai.com/

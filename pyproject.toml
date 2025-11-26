@@ -4,6 +4,10 @@ version = "0.1.2"
 description = "Python middlewares over the WebSocket of OpenAI Realtime API. "
 readme = "README.md"
 requires-python = ">=3.12"
+license = { file = 'LICENSE' }
+authors = [
+  { name = 'Daniel Chin', email = 'daniel.chin@nyu.edu' },
+]
 dependencies = [
     "openai>=2.7.1",
     "openai-agents",
@@ -24,6 +28,7 @@ daniel-chin-python-alt-stdlib = { git = "https://github.com/Daniel-Chin/python-a
 [dependency-groups]
 dev = [
     "pytest>=9.0.1",
+    "twine>=6.2.0",
 ]
 
 [build-system]
@@ -32,3 +37,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[project.urls]
+Homepage = 'https://github.com/daniel-chin/openai-realtime-api-utils'
+Source = 'https://github.com/daniel-chin/openai-realtime-api-utils'
+Issues = 'https://github.com/daniel-chin/openai-realtime-api-utils/issues'
