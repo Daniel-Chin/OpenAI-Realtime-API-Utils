@@ -126,7 +126,7 @@ async def story(send: tp.Callable[[tp_rt.RealtimeClientEventParam], tp.Awaitable
                         type='semantic_vad',
                         create_response=True,
                         eagerness='high',
-                        interrupt_response=False,
+                        interrupt_response=True,
                     ),
                 ),
             ),

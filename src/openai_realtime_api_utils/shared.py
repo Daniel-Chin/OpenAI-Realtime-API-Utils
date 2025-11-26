@@ -45,8 +45,8 @@ def parse_client_event_param(
 @contextmanager
 def hook_handlers(
     connection: AsyncRealtimeConnection, 
-    serverEventHandlers: list[ServerEventHandler], 
-    clientEventHandlers: list[ClientEventHandler], 
+    server_event_handlers: list[ServerEventHandler], 
+    client_event_handlers: list[ClientEventHandler], 
 ):
     async def keep_receiving():
         while True:
@@ -56,7 +56,7 @@ def hook_handlers(
                 print('WebSocket connection closed normally')
                 return
             metadata = {}
-            for sHandler in serverEventHandlers:
+            for sHandler in server_event_handlers:
                 maybe_event, metadata = sHandler(event, metadata, connection)
                 if maybe_event is None:
                     break
@@ -64,7 +64,7 @@ def hook_handlers(
     
     async def send(event: tp_rt.RealtimeClientEventParam) -> None:
         metadata = {}
-        for cHandler in clientEventHandlers:
+        for cHandler in client_event_handlers:
             maybe_event, metadata = cHandler(event, metadata, connection)
             if maybe_event is None:
                 break

@@ -1,4 +1,10 @@
-# OpenAI Realtime API Utils
+# OpenAI Realtime API Python Utils
+If you want to base your application/agent on OpenAI's realtime api, but:  
+- OpenAI's [`agents` SDK](https://github.com/openai/openai-agents-python) makes too many assumptions,  
+- [`openai.resources.realtime`](https://github.com/openai/openai-python/tree/main/src/openai/resources/realtime) is too low-level,  
+
+then this package is for you.  
+
 - See the example at [./tests/test_middlewares.py](./tests/test_middlewares.py)  
 ```python
 with hook_handlers(
@@ -8,14 +14,14 @@ with hook_handlers(
         track_conversation.server_event_handler,    # views various events
         *iap_server_handlers,   # views e.g. response.output_audio.delta
         stream_mic.server_event_handler,    # views session.updated
-        middlewares.PrintEvents().server_event_handler, # views all events
+        print_events.server_event_handler, # views all events
         f, 
     ], 
     clientEventHandlers = [
         middlewares.GiveClientEventId().client_event_handler, # alter all events without ID
         track_config.client_event_handler,  # views session.update
         track_conversation.client_event_handler,    # views various events
-        middlewares.PrintEvents().client_event_handler, # views all events
+        print_events.client_event_handler, # views all events
     ],
 ) as (keep_receiving, send):
     iap_register_send_with_handlers(send)   # needs to send interrupt events
@@ -32,8 +38,8 @@ with hook_handlers(
   - `.GiveClientEventId`: Auto-fill client event id.  
   - `.Interrupt`: The user may interrupt assistant speech.  
   - `.AudioPlayer`: Host system audio playback.  
-  - `.StreamMic`: Host system audio capture.  
   - `.interruptable_audio_player`: `.Interrupt` and `.AudioPlayer` in gift wraps.  
+  - `.StreamMic`: Host system audio capture.  
   - `.PrintEvents`: Print events for debug.  
 
 ## Style
