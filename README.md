@@ -9,7 +9,7 @@ then this package is for you.
 ```python
 with hook_handlers(
     connection, 
-    serverEventHandlers = [
+    server_event_handlers = [
         track_config.server_event_handler,  # views session.updated
         track_conversation.server_event_handler,    # views various events
         *iap_server_handlers,   # views e.g. response.output_audio.delta
@@ -17,7 +17,7 @@ with hook_handlers(
         print_events.server_event_handler, # views all events
         f, 
     ], 
-    clientEventHandlers = [
+    client_event_handlers = [
         middlewares.GiveClientEventId().client_event_handler, # alter all events without ID
         track_config.client_event_handler,  # views session.update
         track_conversation.client_event_handler,    # views various events
