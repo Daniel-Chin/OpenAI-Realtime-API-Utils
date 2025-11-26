@@ -49,6 +49,7 @@ with hook_handlers(
   - `.PrintEvents`: Print events for debug.  
 
 ## Style
-- Functional programming.
-- Dependency injection. 
+- Functional programming.  
+- Asyncio.  
+- Dependency injection.  
 - Middleware event handlers.  
