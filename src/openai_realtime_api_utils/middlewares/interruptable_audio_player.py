@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 import pyaudio
 
 from .interrupt import (
@@ -7,6 +9,7 @@ from .interrupt import (
 from .audio_player import AudioPlayer
 from ..audio_config import ConfigSpecification, EXAMPLE_SPECIFICATION
 
+@contextmanager
 def interruptable_audio_player(
     connection: AsyncRealtimeConnection, 
     playback_tracker: RealtimePlaybackTracker, 
@@ -16,27 +19,27 @@ def interruptable_audio_player(
     config_specification: ConfigSpecification = EXAMPLE_SPECIFICATION,
     output_device_index: int | None = None, 
 ):
-    audio_player = AudioPlayer(
+    with AudioPlayer(
         pa, 
         config_specification, 
         output_device_index, 
         playback_tracker,
         skip_delta_metadata_keyword=Interrupt.IS_DURING_USER_SPEECH,
-    )
-    interrupt = Interrupt(
-        connection, 
-        track_config,
-        track_conversation,
-        playback_tracker, 
-        on_interrupt=audio_player.interrupt,
-        interruptee_type=AudioPlayer, 
-    )
+    ).context() as audio_player:
+        interrupt = Interrupt(
+            connection, 
+            track_config,
+            track_conversation,
+            playback_tracker, 
+            on_interrupt=audio_player.interrupt,
+            interruptee_type=AudioPlayer, 
+        )
 
-    return (
-        audio_player, interrupt, 
-        (
-            interrupt.server_event_handler,
-            audio_player.server_event_handler,
-        ), # order matters
-        interrupt.register_send_with_handlers, 
-    )
+        yield (
+            audio_player, interrupt, 
+            (
+                interrupt.server_event_handler,
+                audio_player.server_event_handler,
+            ), # order matters
+            interrupt.register_send_with_handlers, 
+        )
