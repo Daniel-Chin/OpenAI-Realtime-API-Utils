@@ -33,7 +33,7 @@ with hook_handlers(
     stream_mic.register_send_with_handlers(send)    # needs to send audio input
     
     asyncio.create_task(keep_receiving())
-...
+    ...
 ```
 
 ## Utilities & Middlewares
