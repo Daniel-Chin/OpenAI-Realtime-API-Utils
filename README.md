@@ -5,6 +5,7 @@ If you want to base your application/agent on OpenAI's realtime api, but:
 
 then this package is for you.  
 
+## Example
 - See the example at [./tests/test_middlewares.py](./tests/test_middlewares.py)  
 ```python
 with hook_handlers(
@@ -31,6 +32,7 @@ with hook_handlers(
 ...
 ```
 
+## Utilities & Middlewares
 - `openai_realtime_api_utils.hook_handlers`: run a session with your handlers.  
 - `openai_realtime_api_utils.middlewares`
   - `.TrackConfig`: Keep track of session config.  
