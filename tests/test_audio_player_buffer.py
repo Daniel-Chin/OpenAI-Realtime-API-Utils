@@ -7,15 +7,15 @@ import pytest
 from functools import lru_cache
 
 @lru_cache(maxsize=1)
-def format_info():
+def config_info():
     from openai.types.realtime import realtime_audio_formats
 
-    from openai_realtime_api_utils.middlewares.audio_player import FormatInfo
+    from openai_realtime_api_utils.audio_config import ConfigInfo, FormatInfo
 
-    return FormatInfo(realtime_audio_formats.AudioPCM(
+    return ConfigInfo(FormatInfo(realtime_audio_formats.AudioPCM(
         type='audio/pcm',
         rate=24000, 
-    ), 8)   # low n_samples_per_page for higher edge-case coverage
+    )), 8)   # low n_samples_per_page for higher edge-case coverage
 
 def bytes_like(b):
     # Ensure uniform type for concatenation (handles bytes | memoryview)
@@ -26,7 +26,7 @@ def run_once(seed: int, total_len: int):
     from openai_realtime_api_utils.middlewares.audio_player import Buffer
 
     rng = random.Random(seed)
-    buf = Buffer(format_info())
+    buf = Buffer(config_info())
 
     # Generate random payload
     data = rng.randbytes(total_len)
@@ -35,13 +35,13 @@ def run_once(seed: int, total_len: int):
     i = 0
     bytes_appended = 0
     pages_popped = 0
-    outputs = []
+    outputs: list[bytes | memoryview] = []
 
     # Helper: how many full pages are available given what we've appended/popped
     def pages_available() -> int:
-        return (bytes_appended // format_info().n_bytes_per_page) - pages_popped
+        return (bytes_appended // config_info().n_bytes_per_page) - pages_popped
 
-    while i < total_len or pages_popped < math.ceil(total_len / format_info().n_bytes_per_page):
+    while i < total_len or pages_popped < math.ceil(total_len / config_info().n_bytes_per_page):
         # Decide randomly to append or pop, but never pop if no pages are ready
         do_append = (
             i < total_len
@@ -56,7 +56,7 @@ def run_once(seed: int, total_len: int):
             bytes_appended += k
         else:
             # Pop exactly one full page
-            outputs.append(buf.pop())
+            outputs.append(buf.pop()[0])
             pages_popped += 1
 
     assembled = b''.join(bytes_like(x) for x in outputs)

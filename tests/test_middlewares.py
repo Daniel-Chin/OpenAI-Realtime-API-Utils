@@ -11,6 +11,7 @@ from agents.realtime import RealtimePlaybackTracker
 
 from openai_realtime_api_utils import hook_handlers, middlewares
 from openai_realtime_api_utils.pyaudio_utils import py_audio_context
+from openai_realtime_api_utils.audio_config import EXAMPLE_SPECIFICATION
 
 LOG_STDOUT = os.getenv('LOG_STDOUT')
 if LOG_STDOUT:
@@ -45,7 +46,6 @@ async def main():
                 track_config,
                 track_conversation,
                 pa, 
-                n_samples_per_page=2048,
             )
 
             with hook_handlers(

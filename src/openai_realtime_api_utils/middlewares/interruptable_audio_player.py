@@ -5,6 +5,7 @@ from .interrupt import (
     TrackConfig, TrackConversation,
 )
 from .audio_player import AudioPlayer
+from ..audio_config import ConfigSpecification, EXAMPLE_SPECIFICATION
 
 def interruptable_audio_player(
     connection: AsyncRealtimeConnection, 
@@ -12,12 +13,12 @@ def interruptable_audio_player(
     track_config: TrackConfig,
     track_conversation: TrackConversation,
     pa: pyaudio.PyAudio, 
-    n_samples_per_page: int = 2048, 
+    config_specification: ConfigSpecification = EXAMPLE_SPECIFICATION,
     output_device_index: int | None = None, 
 ):
     audio_player = AudioPlayer(
         pa, 
-        n_samples_per_page, 
+        config_specification, 
         output_device_index, 
         playback_tracker,
         skip_delta_metadata_keyword=Interrupt.IS_DURING_USER_SPEECH,
