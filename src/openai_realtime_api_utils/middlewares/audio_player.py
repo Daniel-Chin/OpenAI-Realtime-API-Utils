@@ -116,6 +116,14 @@ class RealtimePlaybackTrackerThreadSafe:
         )
 
 class AudioPlayer:
+    '''
+    Plays assistant audio to local output device.  
+    Syncs its audio playhead with a PlaybackTracker, if supplied.  
+    If `audio_config_specification` is underspecified, waits for server 
+    to provide audio format and then opens stream. Otherwise, opens stream 
+    immediately.  
+    '''
+
     roster_manager = MetadataHandlerRosterManager('AudioPlayer')
 
     def __init__(
