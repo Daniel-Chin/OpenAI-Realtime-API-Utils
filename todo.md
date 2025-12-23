@@ -1,2 +1,0 @@
-- publish it
-  - https://community.openai.com/
