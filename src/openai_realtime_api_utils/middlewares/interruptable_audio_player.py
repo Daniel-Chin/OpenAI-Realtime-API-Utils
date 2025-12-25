@@ -7,7 +7,7 @@ from .interrupt import (
     TrackConfig, TrackConversation,
 )
 from .audio_player import AudioPlayer
-from ..audio_config import ConfigSpecification, EXAMPLE_SPECIFICATION
+from ..audio_config import ConfigSpecification
 
 @contextmanager
 def interruptable_audio_player(
@@ -16,7 +16,7 @@ def interruptable_audio_player(
     track_config: TrackConfig,
     track_conversation: TrackConversation,
     pa: pyaudio.PyAudio, 
-    config_specification: ConfigSpecification = EXAMPLE_SPECIFICATION,
+    config_specification: ConfigSpecification,
     output_device_index: int | None = None, 
 ):
     with AudioPlayer(

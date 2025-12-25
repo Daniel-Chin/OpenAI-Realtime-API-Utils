@@ -145,7 +145,7 @@ class AudioPlayer:
         self.speeches: deque[Speech] = deque()
         self.lock = threading.Lock()
         self.pyaudio_niceness_manager = NicenessManager()
-        self.maybe_open_stream()
+        self.maybe_open_stream()    # Why this soon? To fail fast if config unsupported by host.  
     
     def maybe_open_stream(self) -> None:
         if self.stream is not None:

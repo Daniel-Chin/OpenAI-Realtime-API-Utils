@@ -83,6 +83,7 @@ async def main():
                 track_config,
                 track_conversation,
                 pa, 
+                EXAMPLE_SPECIFICATION, 
                 output_device_index = device_out, 
             ) as (audio_player, interrupt, iap_server_handlers, iap_register_send_with_handlers):
                 with middlewares.StreamMic(
