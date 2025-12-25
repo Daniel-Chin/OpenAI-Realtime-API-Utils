@@ -153,7 +153,7 @@ async def story(send: tp.Callable[[tp_rt.RealtimeClientEventParam], tp.Awaitable
         ),
     ))
 
-    await asyncio.sleep(10)
+    await asyncio.sleep(20)
 
 if __name__ == "__main__":
     asyncio.run(main())

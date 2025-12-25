@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass
-from base64 import b64decode
 import asyncio
 import threading
 
@@ -15,6 +14,7 @@ from agents.realtime import RealtimePlaybackTracker
 from .shared import MetadataHandlerRosterManager
 from ..audio_config import N_CHANNELS, ConfigSpecification, ConfigInfo, UnderSpecified
 from ..niceness import NicenessManager, ThreadPriority
+from ..b64_decode_cachable import b64_decode_cachable
 
 class Buffer:
     '''
@@ -252,7 +252,7 @@ class AudioPlayer:
                     except KeyError:
                         pass    # item already interrupted
                     else:
-                        s = b64decode(event.delta)
+                        s = b64_decode_cachable(event, metadata)
                         with self.lock:
                             buffer.append(s)
             case tp_rt.ResponseContentPartAddedEvent():
