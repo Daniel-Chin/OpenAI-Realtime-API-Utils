@@ -86,7 +86,10 @@ async def main():
                     pa, 
                     EXAMPLE_SPECIFICATION, 
                     output_device_index = device_out, 
-                ) as (audio_player, interrupt, iap_server_handlers, iap_register_send_with_handlers),
+                ) as (
+                    audio_player, interrupt, 
+                    iap_server_handlers, iap_register_send_with_handlers,
+                ),
                 middlewares.StreamMic(
                     pa, 
                     EXAMPLE_SPECIFICATION,
