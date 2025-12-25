@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import typing as tp
 from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -101,14 +102,18 @@ class RealtimePlaybackTrackerThreadSafe:
     def update(self, speech: Speech, n_content_bytes: int) -> None:
         # May run after all is destroyed.  
         assert self.parent.config_info is not None
+        finished_speeches = list[Speech]()
         with self.parent.lock:
             while self.parent.speeches and self.parent.speeches[0].is_mission_accomplished():
-                self.parent.speeches.popleft()
+                finished_speeches.append(self.parent.speeches.popleft())
             self.inner.on_play_ms(
                 speech.item_id, 
                 speech.content_index, 
                 n_content_bytes * self.parent.config_info.format_info.ms_per_byte,
             )
+        for finished_speech in finished_speeches:
+            for handler in self.parent.on_speech_end_handlers:
+                handler(finished_speech.item_id, finished_speech.content_index)
     
     def update_soon_threadsafe(self, speech: Speech, n_content_bytes: int) -> None:
         self.asyncio_loop.call_soon_threadsafe(
@@ -132,6 +137,10 @@ class AudioPlayer:
         output_device_index: int | None = None, 
         playback_tracker: RealtimePlaybackTracker | None = None,
         skip_delta_metadata_keyword: str | None = None,
+        on_speech_end_handlers: list[tp.Callable[[
+            tp.Annotated[str, 'item_id'], 
+            tp.Annotated[int, 'content_index'], 
+        ], None]] | None = None,
     ):
         self.pa = pa
         self.audio_config_specification = audio_config_specification
@@ -140,6 +149,7 @@ class AudioPlayer:
             playback_tracker is None
         ) else RealtimePlaybackTrackerThreadSafe(playback_tracker, self)
         self.skip_delta_metadata_keyword = skip_delta_metadata_keyword
+        self.on_speech_end_handlers = on_speech_end_handlers or []
         self.config_info: ConfigInfo | None = None
         self.stream: pyaudio.Stream | None = None
         self.speeches: deque[Speech] = deque()
@@ -210,6 +220,7 @@ class AudioPlayer:
                 self.stream.stop_stream()
                 self.stream.close()
                 self.stream = None
+            self.on_speech_end_handlers.clear()
 
     def get_speech(
         self, item_id: str, content_index: int,
