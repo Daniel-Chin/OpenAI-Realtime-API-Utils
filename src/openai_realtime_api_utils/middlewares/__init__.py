@@ -6,6 +6,7 @@ __all__ = [
     'Interrupt',
     'AudioPlayer',
     'interruptable_audio_player',
+    'StreamMic',
 ]
 
 from .give_client_event_id import GiveClientEventId
