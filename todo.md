@@ -1,4 +1,3 @@
-- interrupt should correctly truncate transcript
 - emit event: speech end
 - schedule func call
 - interruptable func call

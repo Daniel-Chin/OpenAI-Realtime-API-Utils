@@ -6,7 +6,6 @@ from copy import deepcopy
 
 import uuid
 import openai.types.realtime as tp_rt
-from openai.types.realtime.realtime_server_event import ConversationItemRetrieved
 
 from ..shared import (
     str_client_event_omit_audio, str_server_event_omit_audio, 
@@ -15,6 +14,7 @@ from ..shared import (
 )
 from .shared import MetadataHandlerRosterManager
 from ..conversation_group import ConversationGroup
+from ..b64_decode_cachable import b64_decode_cachable
 
 class TrackConversation:
     '''
@@ -189,11 +189,11 @@ class TrackConversation:
                     pass
                 assert old_item == item, (old_item, item)
                 self.conversation_group.touch(item.id, event.event_id)
-            case ConversationItemRetrieved(item=item):
-                assert item.id is not None
-                assert item.id in self.all_items
-                self.all_items[item.id] = item
-                self.conversation_group.touch(item.id, event.event_id)
+            # case ConversationItemRetrieved(item=item):    # ufortunately contains less info than can be inferred from client side.  
+            #     assert item.id is not None
+            #     assert item.id in self.all_items
+            #     self.all_items[item.id] = item
+            #     self.conversation_group.touch(item.id, event.event_id)
             case tp_rt.ConversationItemInputAudioTranscriptionCompletedEvent():
                 item = self.all_items[event.item_id]
                 assert isinstance(item, tp_rt.RealtimeConversationItemUserMessage)
@@ -244,6 +244,11 @@ class TrackConversation:
                     content.transcript = event.delta
                 else:
                     content.transcript += event.delta
+                self.conversation_group.touch(event.item_id, event.event_id)
+            case tp_rt.ResponseAudioDeltaEvent():
+                n_new_bytes = len(b64_decode_cachable(event, metadata))
+                cell = self.conversation_group.get_cell_from_id(event.item_id)
+                cell.audio_total_bytes += n_new_bytes
                 self.conversation_group.touch(event.item_id, event.event_id)
             case tp_rt.ResponseCreatedEvent(response=response):
                 # Openai doesn't give us the main conversation ID.  

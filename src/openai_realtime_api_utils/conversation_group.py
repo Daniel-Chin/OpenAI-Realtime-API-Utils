@@ -10,6 +10,7 @@ class ConversationGroup:
         item_id: str
         response_id: str | None = None
         # (content_index, audio_end_ms)
+        audio_total_bytes: int = 0  # before truncation
         audio_truncate: tuple[int, int] | None = None
         touched_by_event_ids: list[str | None] = field(default_factory=list)
 

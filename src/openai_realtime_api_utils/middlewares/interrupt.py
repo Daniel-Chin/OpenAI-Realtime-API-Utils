@@ -11,6 +11,7 @@ import websockets
 from .shared import MetadataHandlerRosterManager
 from .track_config import TrackConfig
 from .track_conversation import TrackConversation
+from ..audio_config import FormatInfo as AudioFormatInfo
 
 class Interrupt:
     '''
@@ -20,11 +21,13 @@ class Interrupt:
     - Do:
         - stop the local audio player
         - mark the truncation in local conversation
+            - Both the ConversationGroup.Cell and the item.transcript.  
         - send to server
             - response.cancel
             - conversation.item.truncate
-            - conversation.item.retrieve
-                - just to get the updated item with truncated audio
+            - DO NOT conversation.item.retrieve
+                - The retrieved "transcript" field is empty. What a letdown.  
+                - What would you gain from retrieve?  
     - Unless the item has already been interrupted.
         - avoids repeated interrupts when server events are delayed.
     '''
@@ -140,6 +143,19 @@ class Interrupt:
             current_item_content_index, 
             round(elapsed_ms), 
         )
+        assert self.track_config.audio_format_output is not None
+        speech_total_ms = cell.audio_total_bytes * AudioFormatInfo(
+            self.track_config.audio_format_output
+        ).ms_per_byte
+        
+        progress_ratio = elapsed_ms / speech_total_ms
+        item = self.track_conversation.all_items[current_item_id]
+        assert isinstance(item, tp_rt.RealtimeConversationItemAssistantMessage)
+        content = item.content[current_item_content_index]
+        if content.transcript is not None:
+            content.transcript = content.transcript[
+                :round(len(content.transcript) * progress_ratio)
+            ]   # approximately
         try:
             await self.send_with_handlers(
                 tp_rt.ResponseCancelEventParam(
@@ -152,12 +168,6 @@ class Interrupt:
                     item_id=current_item_id,
                     content_index=current_item_content_index,
                     audio_end_ms=round(elapsed_ms),
-                ),
-            )
-            await self.send_with_handlers(
-                tp_rt.ConversationItemRetrieveEventParam(
-                    type='conversation.item.retrieve',
-                    item_id=current_item_id,
                 ),
             )
         except websockets.ConnectionClosedOK:
