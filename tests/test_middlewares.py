@@ -77,84 +77,82 @@ async def main():
                 filter_server=FILTER_SERVER,
                 filter_client=FILTER_CLIENT,
             )
-            with middlewares.interruptable_audio_player(
-                connection, 
-                playback_tracker,
-                track_config,
-                track_conversation,
-                pa, 
-                EXAMPLE_SPECIFICATION, 
-                output_device_index = device_out, 
-            ) as (audio_player, interrupt, iap_server_handlers, iap_register_send_with_handlers):
-                with middlewares.StreamMic(
+            with (
+                middlewares.interruptable_audio_player(
+                    connection, 
+                    playback_tracker,
+                    track_config,
+                    track_conversation,
+                    pa, 
+                    EXAMPLE_SPECIFICATION, 
+                    output_device_index = device_out, 
+                ) as (audio_player, interrupt, iap_server_handlers, iap_register_send_with_handlers),
+                middlewares.StreamMic(
                     pa, 
                     EXAMPLE_SPECIFICATION,
                     input_device_index = device_in,
-                ).context() as stream_mic:
+                ).context() as stream_mic,
+                hook_handlers(
+                    connection, 
+                    server_event_handlers = [
+                        track_config.server_event_handler,  # views session.updated
+                        track_conversation.server_event_handler,    # views various events
+                        *iap_server_handlers,   # views e.g. response.output_audio.delta
+                        stream_mic.server_event_handler,    # views session.updated
+                        print_events.server_event_handler, # views all events
+                        f, 
+                    ], 
+                    client_event_handlers = [
+                        middlewares.GiveClientEventId().client_event_handler, # alter all events without ID
+                        track_config.client_event_handler,  # views session.update
+                        track_conversation.client_event_handler,    # views various events
+                        print_events.client_event_handler, # views all events
+                    ],
+                ) as (keep_receiving, send),
+            ):
+                iap_register_send_with_handlers(send)   # needs to send interrupt events
+                stream_mic.register_send_with_handlers(send)    # needs to send audio input
+                
+                asyncio.create_task(keep_receiving(), name = 'keep_receiving')
 
-                    with hook_handlers(
-                        connection, 
-                        server_event_handlers = [
-                            track_config.server_event_handler,  # views session.updated
-                            track_conversation.server_event_handler,    # views various events
-                            *iap_server_handlers,   # views e.g. response.output_audio.delta
-                            stream_mic.server_event_handler,    # views session.updated
-                            print_events.server_event_handler, # views all events
-                            f, 
-                        ], 
-                        client_event_handlers = [
-                            middlewares.GiveClientEventId().client_event_handler, # alter all events without ID
-                            track_config.client_event_handler,  # views session.update
-                            track_conversation.client_event_handler,    # views various events
-                            print_events.client_event_handler, # views all events
-                        ],
-                    ) as (keep_receiving, send):
-                        iap_register_send_with_handlers(send)   # needs to send interrupt events
-                        stream_mic.register_send_with_handlers(send)    # needs to send audio input
-                        
-                        asyncio.create_task(keep_receiving(), name = 'keep_receiving')
-
-                        await story(send)
-
-async def story(send: tp.Callable[[tp_rt.RealtimeClientEventParam], tp.Awaitable[None]]):
-    await send(tp_rt.SessionUpdateEventParam(
-        type='session.update',
-        session=tp_rt.RealtimeSessionCreateRequestParam(
-            type='realtime',
-            audio=tp_rt.RealtimeAudioConfigParam(
-                input=tp_rt.RealtimeAudioConfigInputParam(
-                    turn_detection=SemanticVad(
-                        type='semantic_vad',
-                        create_response=True,
-                        eagerness='high',
-                        interrupt_response=True,
+                await send(tp_rt.SessionUpdateEventParam(
+                    type='session.update',
+                    session=tp_rt.RealtimeSessionCreateRequestParam(
+                        type='realtime',
+                        audio=tp_rt.RealtimeAudioConfigParam(
+                            input=tp_rt.RealtimeAudioConfigInputParam(
+                                turn_detection=SemanticVad(
+                                    type='semantic_vad',
+                                    create_response=True,
+                                    eagerness='high',
+                                    interrupt_response=True,
+                                ),
+                            ),
+                        ),
                     ),
-                ),
-            ),
-        ),
-    ))
+                ))
 
-    await send(tp_rt.ConversationItemCreateEventParam(
-        type='conversation.item.create',
-        item=tp_rt.RealtimeConversationItemUserMessageParam(
-            type='message',
-            role='user',
-            content=[tp_rt.realtime_conversation_item_user_message_param.Content(
-                type='input_text',
-                text='What is three plus four? Be brief.',
-            )],
-        ),
-    ))
-    await send(tp_rt.ResponseCreateEventParam(
-        type='response.create',
-        response=tp_rt.RealtimeResponseCreateParamsParam(
-            # conversation='none',
-            metadata=dict(laser='69'),
-            # output_modalities=['text'],
-        ),
-    ))
+                await send(tp_rt.ConversationItemCreateEventParam(
+                    type='conversation.item.create',
+                    item=tp_rt.RealtimeConversationItemUserMessageParam(
+                        type='message',
+                        role='user',
+                        content=[tp_rt.realtime_conversation_item_user_message_param.Content(
+                            type='input_text',
+                            text='What is three plus four? Be brief.',
+                        )],
+                    ),
+                ))
+                await send(tp_rt.ResponseCreateEventParam(
+                    type='response.create',
+                    response=tp_rt.RealtimeResponseCreateParamsParam(
+                        # conversation='none',
+                        metadata=dict(laser='69'),
+                        # output_modalities=['text'],
+                    ),
+                ))
 
-    await asyncio.sleep(20)
+                await asyncio.sleep(20)
 
 if __name__ == "__main__":
     asyncio.run(main())
