@@ -1,3 +1,0 @@
-- schedule func call
-- interruptable func call
-  - truncate from chat history

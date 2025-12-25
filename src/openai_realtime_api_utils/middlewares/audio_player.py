@@ -11,8 +11,9 @@ import pyaudio
 import openai.types.realtime as tp_rt
 from openai.types.realtime import realtime_audio_formats
 from agents.realtime import RealtimePlaybackTracker
+from uuid import UUID, uuid4
 
-from .shared import MetadataHandlerRosterManager
+from .shared import MetadataHandlerRosterManager, OnSpeechEndHandler
 from ..audio_config import N_CHANNELS, ConfigSpecification, ConfigInfo, UnderSpecified
 from ..niceness import NicenessManager, ThreadPriority
 from ..b64_decode_cachable import b64_decode_cachable
@@ -35,10 +36,7 @@ class AudioPlayer:
         output_device_index: int | None = None, 
         playback_tracker: RealtimePlaybackTracker | None = None,
         skip_delta_metadata_keyword: str | None = None,
-        on_speech_end_handlers: list[tp.Callable[[
-            tp.Annotated[str, 'item_id'], 
-            tp.Annotated[int, 'content_index'], 
-        ], None]] | None = None,
+        on_speech_end_handlers: dict[UUID, OnSpeechEndHandler] | None = None,
     ):
         self.pa = pa
         self.audio_config_specification = audio_config_specification
@@ -47,7 +45,7 @@ class AudioPlayer:
             playback_tracker is None
         ) else RealtimePlaybackTrackerThreadSafe(playback_tracker, self)
         self.skip_delta_metadata_keyword = skip_delta_metadata_keyword
-        self.on_speech_end_handlers = on_speech_end_handlers or []
+        self.on_speech_end_handlers = on_speech_end_handlers or {}
         self.config_info: ConfigInfo | None = None
         self.stream: pyaudio.Stream | None = None
         self.speeches: deque[Speech] = deque()
@@ -192,6 +190,15 @@ class AudioPlayer:
         self.speeches.clear()
         if self.playback_tracker_thread_safe is not None:
             self.playback_tracker_thread_safe.inner.on_interrupted()
+    
+    def register_on_speech_end_handler(
+        self, handler: OnSpeechEndHandler,
+    ) -> tp.Callable[[], None]:
+        uuid = uuid4()
+        self.on_speech_end_handlers[uuid] = handler
+        def unregister():
+            self.on_speech_end_handlers.pop(uuid, None)
+        return unregister
 
 class Buffer:
     '''
@@ -288,8 +295,9 @@ class RealtimePlaybackTrackerThreadSafe:
                 n_content_bytes * self.parent.config_info.format_info.ms_per_byte,
             )
         for finished_speech in finished_speeches:
-            for handler in self.parent.on_speech_end_handlers:
-                handler(finished_speech.item_id, finished_speech.content_index)
+            for handler in self.parent.on_speech_end_handlers.values():
+                coro = handler(finished_speech.item_id, finished_speech.content_index)
+                asyncio.create_task(coro)
     
     def update_soon_threadsafe(self, speech: Speech, n_content_bytes: int) -> None:
         self.asyncio_loop.call_soon_threadsafe(

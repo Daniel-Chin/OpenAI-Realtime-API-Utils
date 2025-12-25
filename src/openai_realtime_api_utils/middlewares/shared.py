@@ -41,3 +41,8 @@ class MetadataHandlerRosterManager:
         roster = metadata[HANDLER_ROSTER]
         assert isinstance(roster, list)
         return handler_name in roster
+
+OnSpeechEndHandler = tp.Callable[[
+    tp.Annotated[str, 'item_id'], 
+    tp.Annotated[int, 'content_index'], 
+], tp.Coroutine[None, None, None]]
