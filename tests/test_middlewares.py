@@ -51,7 +51,7 @@ async def main():
     a_oa = openai.AsyncOpenAI()
     a_r = AsyncRealtime(a_oa)
 
-    def f(e, metadata, _):
+    def log_config(e, metadata, _):
         if not FILTER_SERVER(e):
             return e, metadata
         print('<config>')
@@ -70,6 +70,7 @@ async def main():
         async with a_r.connect(
             model='gpt-realtime-mini',
         ) as connection:
+            # All middlewares are optional.  
             track_config = middlewares.TrackConfig()
             track_conversation = middlewares.TrackConversation()
             playback_tracker = RealtimePlaybackTracker()
@@ -97,13 +98,14 @@ async def main():
                 ).context() as stream_mic,
                 hook_handlers(
                     connection, 
+                    # All middlewares are optional.  
                     server_event_handlers = [
                         track_config.server_event_handler,  # views session.updated
                         track_conversation.server_event_handler,    # views various events
                         *iap_server_handlers,   # views e.g. response.output_audio.delta
                         stream_mic.server_event_handler,    # views session.updated
                         print_events.server_event_handler, # views all events
-                        f, 
+                        log_config, 
                     ], 
                     client_event_handlers = [
                         middlewares.GiveClientEventId().client_event_handler, # alter all events without ID
