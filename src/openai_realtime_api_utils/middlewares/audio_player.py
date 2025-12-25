@@ -17,109 +17,6 @@ from ..audio_config import N_CHANNELS, ConfigSpecification, ConfigInfo, UnderSpe
 from ..niceness import NicenessManager, ThreadPriority
 from ..b64_decode_cachable import b64_decode_cachable
 
-class Buffer:
-    '''
-    State invariants:  
-    - len(x) == n_bytes_per_page for any x in self.dq.  
-    - self.tail is None or len(self.tail) < n_bytes_per_page.  
-
-    Method behaviors:  
-    - `append` and `pop` forms a queue-like orderedness on the bytes.  
-    - `pop` returns exactly one page, padding with silence if necessary.  
-    - `append` can take arbitrary length bytes.  
-
-    Optimization rationale:  
-    - Favor memoryview. Avoid copying.  
-    '''
-
-    def __init__(self, config_info: ConfigInfo):
-        self.config_info = config_info
-
-        self.dq: deque[memoryview | bytes] = deque()
-        self.tail: bytes | None = None
-    
-    def pop(self) -> tuple[bytes | memoryview, int]:
-        n_bytes_per_page = self.config_info.n_bytes_per_page
-        try:
-            return self.dq.popleft(), n_bytes_per_page
-        except IndexError:
-            if self.tail is None:
-                return self.config_info.silence_page, 0
-            result = self.tail + self.config_info.silence_page[
-                len(self.tail):
-            ]
-            n_content_bytes = len(self.tail)
-            self.tail = None
-            return result, n_content_bytes
-    
-    def append(self, data: bytes):
-        n_bytes_per_page = self.config_info.n_bytes_per_page
-        mv = memoryview(data)
-        if self.tail is not None:
-            tail_short_by = (
-                n_bytes_per_page - len(self.tail)
-            )
-            self.tail += mv[:tail_short_by]
-            if len(self.tail) < n_bytes_per_page:
-                return
-            self.dq.append(self.tail)
-            self.tail = None
-            mv = mv[tail_short_by:]
-        while len(mv):
-            segment, mv = (
-                mv[:n_bytes_per_page ], 
-                mv[ n_bytes_per_page:], 
-            )
-            if len(segment) == n_bytes_per_page:
-                self.dq.append(segment)
-            else:
-                self.tail = bytes(segment)
-                return
-    
-    def is_empty(self) -> bool:
-        return len(self.dq) == 0 and self.tail is None
-
-@dataclass
-class Speech:
-    item_id: str
-    content_index: int
-    buffer: Buffer
-    has_more_to_come: bool = True
-
-    def is_mission_accomplished(self) -> bool:
-        return not self.has_more_to_come and self.buffer.is_empty()
-
-class RealtimePlaybackTrackerThreadSafe:
-    def __init__(
-        self, inner: RealtimePlaybackTracker, /, 
-        parent: AudioPlayer, 
-    ):
-        self.inner = inner
-        self.parent = parent
-
-        self.asyncio_loop = asyncio.get_event_loop()
-    
-    def update(self, speech: Speech, n_content_bytes: int) -> None:
-        # May run after all is destroyed.  
-        assert self.parent.config_info is not None
-        finished_speeches = list[Speech]()
-        with self.parent.lock:
-            while self.parent.speeches and self.parent.speeches[0].is_mission_accomplished():
-                finished_speeches.append(self.parent.speeches.popleft())
-            self.inner.on_play_ms(
-                speech.item_id, 
-                speech.content_index, 
-                n_content_bytes * self.parent.config_info.format_info.ms_per_byte,
-            )
-        for finished_speech in finished_speeches:
-            for handler in self.parent.on_speech_end_handlers:
-                handler(finished_speech.item_id, finished_speech.content_index)
-    
-    def update_soon_threadsafe(self, speech: Speech, n_content_bytes: int) -> None:
-        self.asyncio_loop.call_soon_threadsafe(
-            self.update, speech, n_content_bytes, 
-        )
-
 class AudioPlayer:
     '''
     Plays assistant audio to local output device.  
@@ -127,6 +24,7 @@ class AudioPlayer:
     If `audio_config_specification` is underspecified, waits for server 
     to provide audio format and then opens stream. Otherwise, opens stream 
     immediately.  
+    Emits an event on finishing playing an assistant speech via `on_speech_end_handlers`.  
     '''
 
     roster_manager = MetadataHandlerRosterManager('AudioPlayer')
@@ -294,3 +192,106 @@ class AudioPlayer:
         self.speeches.clear()
         if self.playback_tracker_thread_safe is not None:
             self.playback_tracker_thread_safe.inner.on_interrupted()
+
+class Buffer:
+    '''
+    State invariants:  
+    - len(x) == n_bytes_per_page for any x in self.dq.  
+    - self.tail is None or len(self.tail) < n_bytes_per_page.  
+
+    Method behaviors:  
+    - `append` and `pop` forms a queue-like orderedness on the bytes.  
+    - `pop` returns exactly one page, padding with silence if necessary.  
+    - `append` can take arbitrary length bytes.  
+
+    Optimization rationale:  
+    - Favor memoryview. Avoid copying.  
+    '''
+
+    def __init__(self, config_info: ConfigInfo):
+        self.config_info = config_info
+
+        self.dq: deque[memoryview | bytes] = deque()
+        self.tail: bytes | None = None
+    
+    def pop(self) -> tuple[bytes | memoryview, int]:
+        n_bytes_per_page = self.config_info.n_bytes_per_page
+        try:
+            return self.dq.popleft(), n_bytes_per_page
+        except IndexError:
+            if self.tail is None:
+                return self.config_info.silence_page, 0
+            result = self.tail + self.config_info.silence_page[
+                len(self.tail):
+            ]
+            n_content_bytes = len(self.tail)
+            self.tail = None
+            return result, n_content_bytes
+    
+    def append(self, data: bytes):
+        n_bytes_per_page = self.config_info.n_bytes_per_page
+        mv = memoryview(data)
+        if self.tail is not None:
+            tail_short_by = (
+                n_bytes_per_page - len(self.tail)
+            )
+            self.tail += mv[:tail_short_by]
+            if len(self.tail) < n_bytes_per_page:
+                return
+            self.dq.append(self.tail)
+            self.tail = None
+            mv = mv[tail_short_by:]
+        while len(mv):
+            segment, mv = (
+                mv[:n_bytes_per_page ], 
+                mv[ n_bytes_per_page:], 
+            )
+            if len(segment) == n_bytes_per_page:
+                self.dq.append(segment)
+            else:
+                self.tail = bytes(segment)
+                return
+    
+    def is_empty(self) -> bool:
+        return len(self.dq) == 0 and self.tail is None
+
+@dataclass
+class Speech:
+    item_id: str
+    content_index: int
+    buffer: Buffer
+    has_more_to_come: bool = True
+
+    def is_mission_accomplished(self) -> bool:
+        return not self.has_more_to_come and self.buffer.is_empty()
+
+class RealtimePlaybackTrackerThreadSafe:
+    def __init__(
+        self, inner: RealtimePlaybackTracker, /, 
+        parent: AudioPlayer, 
+    ):
+        self.inner = inner
+        self.parent = parent
+
+        self.asyncio_loop = asyncio.get_event_loop()
+    
+    def update(self, speech: Speech, n_content_bytes: int) -> None:
+        # May run after all is destroyed.  
+        assert self.parent.config_info is not None
+        finished_speeches = list[Speech]()
+        with self.parent.lock:
+            while self.parent.speeches and self.parent.speeches[0].is_mission_accomplished():
+                finished_speeches.append(self.parent.speeches.popleft())
+            self.inner.on_play_ms(
+                speech.item_id, 
+                speech.content_index, 
+                n_content_bytes * self.parent.config_info.format_info.ms_per_byte,
+            )
+        for finished_speech in finished_speeches:
+            for handler in self.parent.on_speech_end_handlers:
+                handler(finished_speech.item_id, finished_speech.content_index)
+    
+    def update_soon_threadsafe(self, speech: Speech, n_content_bytes: int) -> None:
+        self.asyncio_loop.call_soon_threadsafe(
+            self.update, speech, n_content_bytes, 
+        )
