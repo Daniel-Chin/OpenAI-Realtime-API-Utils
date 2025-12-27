@@ -267,7 +267,7 @@ class Speech:
     item_id: str
     content_index: int
     buffer: Buffer
-    has_more_to_come: bool = True
+    has_more_to_come: bool = True   # if interrupted, unchanged.  
 
     def is_mission_accomplished(self) -> bool:
         return not self.has_more_to_come and self.buffer.is_empty()
