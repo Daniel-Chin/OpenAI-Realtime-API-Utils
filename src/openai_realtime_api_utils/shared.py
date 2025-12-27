@@ -50,7 +50,7 @@ def hook_handlers(
 ) -> tp.Generator[tuple[
     tp.Callable[[], tp.Coroutine[tp.Any, tp.Any, None]], 
     tp.Callable[[tp_rt.RealtimeClientEventParam], tp.Coroutine[tp.Any, tp.Any, None]], 
-], None]:
+], None, None]:
     async def keep_receiving():
         while True:
             try:
