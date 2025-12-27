@@ -13,7 +13,7 @@ from openai.types.realtime import realtime_audio_formats
 from agents.realtime import RealtimePlaybackTracker
 from uuid import UUID, uuid4
 
-from .shared import MetadataHandlerRosterManager, OnSpeechEndHandler
+from .shared import MetadataHandlerRosterManager, AsyncOnSpeechEndHandler
 from ..audio_config import N_CHANNELS, ConfigSpecification, ConfigInfo, UnderSpecified
 from ..niceness import NicenessManager, ThreadPriority
 from ..b64_decode_cachable import b64_decode_cachable
@@ -36,7 +36,7 @@ class AudioPlayer:
         output_device_index: int | None = None, 
         playback_tracker: RealtimePlaybackTracker | None = None,
         skip_delta_metadata_keyword: str | None = None,
-        on_speech_end_handlers: dict[UUID, OnSpeechEndHandler] | None = None,
+        on_speech_end_handlers: dict[UUID, AsyncOnSpeechEndHandler] | None = None,
     ):
         self.pa = pa
         self.audio_config_specification = audio_config_specification
@@ -192,7 +192,7 @@ class AudioPlayer:
             self.playback_tracker_thread_safe.inner.on_interrupted()
     
     def register_on_speech_end_handler(
-        self, handler: OnSpeechEndHandler,
+        self, handler: AsyncOnSpeechEndHandler,
     ) -> tp.Callable[[], None]:
         uuid = uuid4()
         self.on_speech_end_handlers[uuid] = handler

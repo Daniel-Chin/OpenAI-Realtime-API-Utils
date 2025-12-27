@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 import openai.types.realtime as tp_rt
 
-from .shared import MetadataHandlerRosterManager, OnSpeechEndHandler
+from .shared import MetadataHandlerRosterManager, AsyncOnSpeechEndHandler
 
 class ToolCallOnSpeechEnd:
     '''
@@ -26,7 +26,7 @@ class ToolCallOnSpeechEnd:
             ], tp.Coroutine[None, None, None] | None]
         ],
         register_on_speech_end_handler: tp.Callable[
-            [OnSpeechEndHandler], tp.Callable[[], None],
+            [AsyncOnSpeechEndHandler], tp.Callable[[], None],
         ], 
     ):
         self.tool_call_handlers = tool_call_handlers
