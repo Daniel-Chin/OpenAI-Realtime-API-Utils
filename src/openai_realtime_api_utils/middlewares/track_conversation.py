@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 import typing as tp
 from copy import deepcopy
+from contextlib import suppress
 
 import uuid
 import openai.types.realtime as tp_rt
@@ -183,10 +184,12 @@ class TrackConversation:
             ):
                 assert item.id is not None
                 old_item = self.all_items[item.id]
-                try:
-                    old_item.status = item.status   # type: ignore
-                except AttributeError:
-                    pass
+                # What may differ >>>>
+                with suppress(AttributeError):
+                    old_item.status    = item.status     # type: ignore
+                with suppress(AttributeError):
+                    old_item.arguments = item.arguments  # type: ignore
+                # <<<<
                 assert old_item == item, (old_item, item)
                 self.conversation_group.touch(item.id, event.event_id)
             # case ConversationItemRetrieved(item=item):    # ufortunately contains less info than can be inferred from client side.  
