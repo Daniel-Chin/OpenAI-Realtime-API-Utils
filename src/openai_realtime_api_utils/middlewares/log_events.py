@@ -1,4 +1,5 @@
 import typing as tp
+import logging
 
 import openai.types.realtime as tp_rt
 
@@ -7,8 +8,8 @@ from ..shared import (
 )
 from .shared import MetadataHandlerRosterManager
 
-class PrintEvents:
-    roster_manager = MetadataHandlerRosterManager('PrintEvents')
+class LogEvents:
+    roster_manager = MetadataHandlerRosterManager('LogEvents')
 
     def __init__(
         self, 
@@ -29,6 +30,9 @@ class PrintEvents:
         self.filter_client = filter_client
         self.str_server_event = str_server_event
         self.str_client_event = str_client_event
+
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
     
     @roster_manager.decorate
     def server_event_handler(
@@ -37,9 +41,18 @@ class PrintEvents:
         metadata: dict, _, 
     ) -> tuple[tp_rt.RealtimeServerEvent, dict]:
         if self.filter_server is None or self.filter_server(event):
-            print()
-            print(f'Server: {self.str_server_event(event)}')
-            print(f'event {metadata = }')
+            match event:
+                case tp_rt.RealtimeErrorEvent():
+                    if event.error.code == 'response_cancel_not_active':
+                        f = self.logger.info
+                    else:
+                        f = self.logger.warning
+                case _:
+                    f = self.logger.debug
+            f(
+                f'Server: {self.str_server_event(event)}\n'
+                f'event {metadata = }', 
+            )
         return event, metadata
     
     @roster_manager.decorate
@@ -49,9 +62,10 @@ class PrintEvents:
         metadata: dict, _, 
     ) -> tuple[tp_rt.RealtimeClientEventParam, dict]:
         if self.filter_client is None or self.filter_client(eventParam):
-            print(f'Client: {self.str_client_event(eventParam)}')
-            print(f'event {metadata = }')
-            print()
+            self.logger.debug(
+                f'Client: {self.str_client_event(eventParam)}\n'
+                f'eventParam {metadata = }', 
+            )
         return eventParam, metadata
 
 def error_only(

@@ -20,14 +20,14 @@ with hook_handlers(
         track_conversation.server_event_handler,    # views various events
         *iap_server_handlers,   # views e.g. response.output_audio.delta
         stream_mic.server_event_handler,    # views session.updated
-        print_events.server_event_handler, # views all events
+        log_events.server_event_handler, # views all events
         log_config, 
     ], 
     client_event_handlers = [
         middlewares.GiveClientEventId().client_event_handler, # alter all events without ID
         track_config.client_event_handler,  # views session.update
         track_conversation.client_event_handler,    # views various events
-        print_events.client_event_handler, # views all events
+        log_events.client_event_handler, # views all events
     ],
 ) as (keep_receiving, send):
     iap_register_send_with_handlers(send)   # needs to send interrupt events
@@ -47,7 +47,7 @@ with hook_handlers(
   - `.AudioPlayer`: Host system audio playback.  
   - `.interruptable_audio_player`: `.Interrupt` and `.AudioPlayer` in gift wraps.  
   - `.StreamMic`: Host system audio capture.  
-  - `.PrintEvents`: Print events for debug.  
+  - `.LogEvents`: Log events for debug.  
 
 ## Style
 - Functional programming.  

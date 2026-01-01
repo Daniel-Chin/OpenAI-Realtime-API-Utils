@@ -2,7 +2,7 @@ __all__ = [
     'GiveClientEventId',
     'TrackConfig',
     'TrackConversation',
-    'PrintEvents',
+    'LogEvents',
     'Interrupt',
     'ToolCallOnSpeechEnd',
     'AudioPlayer',
@@ -13,7 +13,7 @@ __all__ = [
 from .give_client_event_id import GiveClientEventId
 from .track_config import TrackConfig
 from .track_conversation import TrackConversation
-from .print_events import PrintEvents
+from .log_events import LogEvents
 from .interrupt import Interrupt
 from .tool_call_on_speech_end import ToolCallOnSpeechEnd
 try:    # optional-dependency: local-audio

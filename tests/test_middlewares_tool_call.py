@@ -1,3 +1,6 @@
+'''
+Deprecated along with ToolCallOnSpeechEnd.  
+'''
 # ruff: noqa: F401, F841
 
 import os
@@ -17,7 +20,7 @@ from daniel_chin_python_alt_stdlib.select_audio_device import (
 )
 
 from openai_realtime_api_utils import hook_handlers, middlewares
-from openai_realtime_api_utils.middlewares.print_events import unexpected_error_only
+from openai_realtime_api_utils.middlewares.log_events import unexpected_error_only
 from openai_realtime_api_utils.middlewares.tool_call_on_speech_end import ToolCallOnSpeechEnd
 from openai_realtime_api_utils.pyaudio_utils import py_audio_context
 from openai_realtime_api_utils.audio_config import EXAMPLE_SPECIFICATION
@@ -76,7 +79,7 @@ async def main():
             track_config = middlewares.TrackConfig()
             track_conversation = middlewares.TrackConversation()
             playback_tracker = RealtimePlaybackTracker()
-            print_events = middlewares.PrintEvents(
+            print_events = middlewares.LogEvents(
                 filter_server=FILTER_SERVER,
                 filter_client=FILTER_CLIENT,
             )

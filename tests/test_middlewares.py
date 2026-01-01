@@ -3,8 +3,9 @@
 import os
 import sys
 import asyncio
-import typing as tp
 import io
+import logging
+from contextlib import suppress
 
 import openai
 from openai.resources.realtime import AsyncRealtime
@@ -16,9 +17,11 @@ from daniel_chin_python_alt_stdlib.select_audio_device import (
 )
 
 from openai_realtime_api_utils import hook_handlers, middlewares
-from openai_realtime_api_utils.middlewares.print_events import unexpected_error_only
+from openai_realtime_api_utils.middlewares.log_events import unexpected_error_only
 from openai_realtime_api_utils.pyaudio_utils import py_audio_context
 from openai_realtime_api_utils.audio_config import EXAMPLE_SPECIFICATION
+
+LOG_PATH = './tests/logs/test_middlewares.log'
 
 def FILTER_SERVER(_): return True
 def FILTER_CLIENT(_): return True
@@ -26,26 +29,35 @@ def FILTER_CLIENT(_): return True
 # FILTER_SERVER = unexpected_error_only
 # def FILTER_CLIENT(_): return False
 
-LOG_STDOUT = os.getenv('LOG_STDOUT')
-if LOG_STDOUT:
-    class TeeOutput:
-        def __init__(self, file_path: str, original_stream: io.TextIOBase | tp.Any):
-            self.file = open(file_path, 'w', buffering=1)  # line-buffered
-            self.original_stream = original_stream
-        
-        def write(self, message):
-            self.original_stream.write(message)
-            self.file.write(message)
-        
-        def flush(self):
-            self.original_stream.flush()
-            self.file.flush()
-        
-        def close(self):
-            self.file.close()
+def init_logging():
+    _logger = logging.getLogger()
+    _logger.setLevel(logging.DEBUG)
+
+    with suppress(FileNotFoundError):
+        os.remove(LOG_PATH)
     
-    sys.stdout = TeeOutput('./tests/logs/test_middlewares.log', sys.stdout)
-    # sys.stderr = TeeOutput('./tests/logs/test_middlewares.log', sys.stderr)
+    file_handler = logging.FileHandler(LOG_PATH)
+    file_handler.setLevel(logging.DEBUG)
+    file_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s\n')
+    file_handler.setFormatter(file_format)
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(logging.INFO)
+    stream_format = logging.Formatter('%(levelname)s: %(message)s')
+    stream_handler.setFormatter(stream_format)
+
+    _logger.addHandler(file_handler)
+    _logger.addHandler(stream_handler)
+
+    for downstream in [
+        'openai', 
+        'websockets', 
+    ]:
+        logging.getLogger(downstream).setLevel(logging.WARNING)
+
+    return _logger
+
+logger = init_logging()
 
 async def main():
     a_oa = openai.AsyncOpenAI()
@@ -54,13 +66,17 @@ async def main():
     def log_config(e, metadata, _):
         if not FILTER_SERVER(e):
             return e, metadata
-        print('<config>')
+        buf = io.StringIO()
+        def p(*a, **kw):
+            print(*a, file=buf, **kw)
+        p('<config>')
         if track_config.session_config is None:
-            print('Unavailable, or invalidated.')
+            p('Unavailable, or invalidated.')
         else:
-            print(track_config.session_config.model_dump())
-        print('</config>')
-        track_conversation.print_conversation()
+            p(track_config.session_config.model_dump())
+        p('</config>')
+        track_conversation.print_conversation(print_fn=p)
+        logger.debug(buf.getvalue())
         return e, metadata
     
     with py_audio_context() as pa:
@@ -74,7 +90,7 @@ async def main():
             track_config = middlewares.TrackConfig()
             track_conversation = middlewares.TrackConversation()
             playback_tracker = RealtimePlaybackTracker()
-            print_events = middlewares.PrintEvents(
+            log_events = middlewares.LogEvents(
                 filter_server=FILTER_SERVER,
                 filter_client=FILTER_CLIENT,
             )
@@ -104,14 +120,14 @@ async def main():
                         track_conversation.server_event_handler,    # views various events
                         *iap_server_handlers,   # views e.g. response.output_audio.delta
                         stream_mic.server_event_handler,    # views session.updated
-                        print_events.server_event_handler, # views all events
+                        log_events.server_event_handler, # views all events
                         log_config, 
                     ], 
                     client_event_handlers = [
                         middlewares.GiveClientEventId().client_event_handler, # alter all events without ID
                         track_config.client_event_handler,  # views session.update
                         track_conversation.client_event_handler,    # views various events
-                        print_events.client_event_handler, # views all events
+                        log_events.client_event_handler, # views all events
                     ],
                 ) as (keep_receiving, send),
             ):
@@ -157,7 +173,10 @@ async def main():
                     ),
                 ))
 
-                await asyncio.sleep(20)
+                try:
+                    await asyncio.sleep(20)
+                except asyncio.CancelledError:
+                    print('bye.')
 
 if __name__ == '__main__':
     asyncio.run(main())
