@@ -21,7 +21,7 @@ class Interrupt:
     - Do:
         - stop the local audio player
         - mark the truncation in local conversation
-            - Both the ConversationGroup.Cell and the item.transcript.  
+            - Both audio and transcript in ConversationGroup.Cell.  
         - send to server
             - response.cancel
             - conversation.item.truncate
@@ -153,7 +153,7 @@ class Interrupt:
         assert isinstance(item, tp_rt.RealtimeConversationItemAssistantMessage)
         content = item.content[current_item_content_index]
         if content.transcript is not None:
-            content.transcript = content.transcript[
+            cell.truncated_transcript = content.transcript[
                 :round(len(content.transcript) * progress_ratio)
             ]   # approximately
         try:

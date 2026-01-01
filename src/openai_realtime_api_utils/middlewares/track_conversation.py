@@ -335,7 +335,7 @@ class TrackConversation:
         buf.append(f'  {str_item_omit_audio(item)}')
         if cell.audio_truncate is not None:
             content_index, audio_end_ms = cell.audio_truncate
-            buf.append(f'truncate: {content_index = }, {audio_end_ms = }')
+            buf.append(f'truncate: {content_index = }, {audio_end_ms = }, ~{cell.truncated_transcript!r}')
         if cell.response_id is not None:
             metadata = self.responses[cell.response_id].metadata
             buf.append(f'metadata: {metadata}')

@@ -148,6 +148,10 @@ async def main():
                                     eagerness='high',
                                     interrupt_response=True,
                                 ),
+                                transcription=tp_rt.AudioTranscriptionParam(
+                                    language='en',
+                                    model='gpt-4o-mini-transcribe',
+                                ),
                             ),
                         ),
                     ),
