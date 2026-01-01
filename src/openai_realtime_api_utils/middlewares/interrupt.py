@@ -13,6 +13,8 @@ from .track_config import TrackConfig
 from .track_conversation import TrackConversation
 from ..audio_config import FormatInfo as AudioFormatInfo
 
+OnInterruptHandler = tp.Callable[[tp.Annotated[str, 'item_id']], None]
+
 class Interrupt:
     '''
     - Whenever:
@@ -42,14 +44,14 @@ class Interrupt:
         track_config: TrackConfig,
         track_conversation: TrackConversation,
         playback_tracker: RealtimePlaybackTracker, 
-        on_interrupt: tp.Callable[[], None],
+        on_interrupt_handlers: list[OnInterruptHandler],
         interruptee_type: tp.Type, 
     ):
         self.connection = connection
         self.track_config = track_config
         self.track_conversation = track_conversation
         self.playback_tracker = playback_tracker
-        self.on_interrupt = on_interrupt
+        self.on_interrupt_handlers = on_interrupt_handlers
         self.interruptee_type = interruptee_type
 
         self.is_user_talking = False
@@ -134,7 +136,6 @@ class Interrupt:
         current_item_content_index: int, 
         elapsed_ms: float, 
     ) -> None:
-        self.on_interrupt() # pause audio playback
         self.playback_tracker.on_interrupted()  # in fact is the responsibility of the audio player, but let's make sure
         cell = self.track_conversation.conversation_group.get_cell_from_id(
             current_item_id, 
@@ -156,6 +157,8 @@ class Interrupt:
             cell.truncated_transcript = content.transcript[
                 :round(len(content.transcript) * progress_ratio)
             ]   # approximately
+        for handler in self.on_interrupt_handlers:
+            handler(current_item_id) # pause audio playback, and more
         try:
             await self.send_with_handlers(
                 tp_rt.ResponseCancelEventParam(

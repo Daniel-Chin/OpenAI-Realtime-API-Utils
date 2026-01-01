@@ -186,7 +186,8 @@ class AudioPlayer:
                         speech.has_more_to_come = False
         return event, metadata
     
-    def interrupt(self):
+    def interrupt(self, item_id: str) -> None:
+        _ = item_id
         self.speeches.clear()
         if self.playback_tracker_thread_safe is not None:
             self.playback_tracker_thread_safe.inner.on_interrupted()

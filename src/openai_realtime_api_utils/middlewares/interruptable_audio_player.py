@@ -31,7 +31,7 @@ def interruptable_audio_player(
             track_config,
             track_conversation,
             playback_tracker, 
-            on_interrupt=audio_player.interrupt,
+            on_interrupt_handlers=[audio_player.interrupt],
             interruptee_type=AudioPlayer, 
         )
 
