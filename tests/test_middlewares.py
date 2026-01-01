@@ -76,7 +76,7 @@ async def main():
             p(track_config.session_config.model_dump())
         p('</config>')
         track_conversation.print_conversation(print_fn=p)
-        logger.debug(buf.getvalue())
+        logger.debug(buf.getvalue().strip())
         return e, metadata
     
     with py_audio_context() as pa:
