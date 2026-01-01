@@ -348,9 +348,9 @@ class TrackConversation:
                 event,       datetime_ = self.server_events[event_id]
             except KeyError:
                 event_param, datetime_ = self.client_events[event_id]
-                str_event = str(type(event_param))
+                str_event = type(event_param).__name__
             else:
-                str_event = str(type(event))
+                str_event = type(event      ).__name__
             dt = (datetime_ - self.init_time).total_seconds()
             buf.append(f'  [{dt:5.1f}] {event_id:28s} {str_event}')
         return '\n  '.join(buf)[1:]
