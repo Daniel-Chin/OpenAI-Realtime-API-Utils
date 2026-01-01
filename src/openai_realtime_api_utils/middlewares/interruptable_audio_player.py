@@ -4,7 +4,7 @@ import pyaudio
 
 from .interrupt import (
     Interrupt, AsyncRealtimeConnection, RealtimePlaybackTracker, 
-    TrackConfig, TrackConversation,
+    TrackConfig, TrackConversation, OnInterruptHandler,
 )
 from .audio_player import AudioPlayer
 from ..audio_config import ConfigSpecification
@@ -18,6 +18,7 @@ def interruptable_audio_player(
     pa: pyaudio.PyAudio, 
     config_specification: ConfigSpecification,
     output_device_index: int | None = None, 
+    on_interrupt_handlers: list[OnInterruptHandler] = [],
 ):
     with AudioPlayer(
         pa, 
@@ -31,7 +32,7 @@ def interruptable_audio_player(
             track_config,
             track_conversation,
             playback_tracker, 
-            on_interrupt_handlers=[audio_player.interrupt],
+            on_interrupt_handlers=[audio_player.interrupt, *on_interrupt_handlers],
             interruptee_type=AudioPlayer, 
         )
 
