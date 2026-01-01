@@ -4,12 +4,12 @@ from datetime import datetime
 import typing as tp
 from copy import deepcopy
 from contextlib import suppress
+import io
 
 import uuid
 import openai.types.realtime as tp_rt
 
 from ..shared import (
-    str_client_event_omit_audio, str_server_event_omit_audio, 
     str_item_omit_audio, parse_client_event_param, 
     item_from_param, PART_TO_CONTENT_TYPE, 
 )
@@ -328,21 +328,20 @@ class TrackConversation:
                 return e_p, metadata
         return event_param, metadata
 
-    def repr_cell(self, cell: ConversationGroup.Cell):
-        buf = ['']
-        buf.append('current state:')
+    def print_cell(self, cell: ConversationGroup.Cell, print_fn: tp.Callable):
+        print_fn('current state:')
         item = self.all_items[cell.item_id]
-        buf.append(f'  {str_item_omit_audio(item)}')
+        print_fn(f'  {str_item_omit_audio(item)}')
         if cell.audio_truncate is not None:
             content_index, audio_end_ms = cell.audio_truncate
-            buf.append(f'truncate: {content_index = }, {audio_end_ms = }, ~{cell.truncated_transcript!r}')
+            print_fn(f'truncate: {content_index = }, {audio_end_ms = }, ~{cell.truncated_transcript!r}')
         if cell.response_id is not None:
             metadata = self.responses[cell.response_id].metadata
-            buf.append(f'metadata: {metadata}')
-        buf.append('touched by:')
+            print_fn(f'metadata: {metadata}')
+        print_fn('touched by:')
         for event_id in cell.touched_by_event_ids:
             if event_id is None:
-                buf.append('  <unindexed client event>')
+                print_fn('  <unindexed client event>')
                 continue
             try:
                 event,       datetime_ = self.server_events[event_id]
@@ -352,20 +351,24 @@ class TrackConversation:
             else:
                 str_event = type(event      ).__name__
             dt = (datetime_ - self.init_time).total_seconds()
-            buf.append(f'  [{dt:5.1f}] {event_id:28s} {str_event}')
-        return '\n  '.join(buf)[1:]
+            print_fn(f'  [{dt:5.1f}] {event_id:28s} {str_event}')
     
     def print_conversation(self, print_fn: tp.Callable = print) -> None:
-        print_fn('<conversation_group>')
+        def cell_print(*a, **kw):
+            print_fn(' ' * 4, end='')
+            print_fn(*a, **kw)
+        
+        def print_cells(cells: tp.Iterable[ConversationGroup.Cell]) -> None:
+            for i, cell in enumerate(cells):
+                print_fn(' ', '-' * 8, i, '-' * 8)
+                self.print_cell(cell, cell_print)
+        
+        # print_fn('<conversation_group>')
         print_fn('<main conversation>')
-        for i, cell in enumerate(self.conversation_group.iter_main_conversation()):
-            print_fn('-' * 8, i, '-' * 8)
-            print_fn(self.repr_cell(cell))
+        print_cells(self.conversation_group.iter_main_conversation())
         print_fn('</main conversation>')
         if self.conversation_group.out_of_band_cells:
             print_fn('<out-of-band items>')
-            for i, cell in enumerate(self.conversation_group.out_of_band_cells.values()):
-                print_fn('-' * 8, i, '-' * 8)
-                print_fn(self.repr_cell(cell))
+            print_cells(self.conversation_group.out_of_band_cells.values())
             print_fn('</out-of-band items>')
-        print_fn('</conversation_group>')
+        # print_fn('</conversation_group>')
