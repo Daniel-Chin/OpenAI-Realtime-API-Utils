@@ -3,6 +3,8 @@ from base64 import b64encode
 import itertools
 import asyncio
 from contextlib import contextmanager
+import wave
+import audioop
 
 import pyaudio
 import openai.types.realtime as tp_rt
@@ -23,6 +25,7 @@ class StreamMic:
     If `audio_config_specification` is underspecified, waits for server 
     to provide audio format and then opens stream. Otherwise, opens stream 
     immediately.  
+    Can duplicate audio to a recording file.  
     '''
 
     roster_manager = MetadataHandlerRosterManager('StreamMic')
@@ -32,6 +35,7 @@ class StreamMic:
         pa: pyaudio.PyAudio, 
         audio_config_specification: ConfigSpecification,
         input_device_index: int | None = None, 
+        recording_path: str | None = None,
     ):
         self.pa = pa
         self.audio_config_specification = audio_config_specification
@@ -45,6 +49,13 @@ class StreamMic:
         self.asyncio_loop = asyncio.get_event_loop()
         self.buffer = asyncio.Queue[bytes]()
         self.niceness_manager = NicenessManager()
+
+        if recording_path is None:
+            self._recording_file = None
+        else:
+            self._recording_file = wave.open(recording_path, 'wb')
+            self._recording_file.setnchannels(N_CHANNELS)
+            self._recording_file.setsampwidth(2)    # Even if input is 8-bit A-law/u-law, we expand to 16-bit PCM for WAV compatibility
 
         self.maybe_open_stream()
     
@@ -71,6 +82,8 @@ class StreamMic:
         )
         self.stream.start_stream()
         print(__class__.__name__ + ': stream opened.')
+        if self._recording_file is not None:
+            self._recording_file.setframerate(config_info.format_info.sample_rate)
         asyncio.create_task(self.worker(), name='StreamMic_worker')
     
     def _set_audio_config(self, from_server: tp_rt.RealtimeAudioFormats | None) -> ConfigInfo:
@@ -123,12 +136,32 @@ class StreamMic:
                     append(self.buffer.get_nowait())
                 except asyncio.QueueEmpty:
                     break
+            harvested = harvest()
             try:
-                await self.send_audio(harvest())
+                await self.send_audio(harvested)
             except websockets.ConnectionClosedOK:
                 assert self.stream is None
                 return
+            if self._recording_file is not None:
+                processed = self._process_audio_chunk(harvested)
+                self._recording_file.writeframes(processed)
 
+    def _process_audio_chunk(self, data: bytes) -> bytes:
+        """
+        Decodes G.711 formats to Linear PCM 16-bit.
+        Passes through Linear PCM data as is.
+        """
+        assert self.config_info is not None
+        match self.config_info.format_info.format:
+            case realtime_audio_formats.AudioPCM():
+                return data
+            case realtime_audio_formats.AudioPCMA():
+                return audioop.alaw2lin(data, 2)
+            case realtime_audio_formats.AudioPCMU():
+                return audioop.ulaw2lin(data, 2)
+            case _:
+                raise ValueError(f'Unsupported audio format: {self.config_info.format_info.format}')
+    
     @roster_manager.decorate
     def server_event_handler(
         self, event: tp_rt.RealtimeServerEvent, metadata: dict, _,
@@ -164,3 +197,6 @@ class StreamMic:
                 self.stream.close()
                 self.stream = None
             self.buffer.put_nowait(b'')  # unblock worker
+            if self._recording_file is not None:
+                self._recording_file.close()
+                self._recording_file = None

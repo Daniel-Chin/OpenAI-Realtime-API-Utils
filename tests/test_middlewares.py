@@ -21,7 +21,8 @@ from openai_realtime_api_utils.middlewares.log_events import unexpected_error_on
 from openai_realtime_api_utils.pyaudio_utils import py_audio_context
 from openai_realtime_api_utils.audio_config import EXAMPLE_SPECIFICATION
 
-LOG_PATH = './tests/logs/test_middlewares.log'
+LOG_PATH       = './tests/logs/test_middlewares.log'
+RECORDING_PATH = './tests/logs/test_middlewares.wav'
 
 def FILTER_SERVER(_): return True
 def FILTER_CLIENT(_): return True
@@ -111,6 +112,7 @@ async def main():
                     pa, 
                     EXAMPLE_SPECIFICATION,
                     input_device_index = device_in,
+                    recording_path = RECORDING_PATH,
                 ).context() as stream_mic,
                 hook_handlers(
                     connection, 
