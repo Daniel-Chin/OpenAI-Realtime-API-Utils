@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import typing as tp
 
 from .shared import L, is_root
 
@@ -9,10 +10,12 @@ class ConversationGroup:
     class Cell:
         item_id: str
         response_id: str | None = None
-        # (content_index, audio_end_ms)
         audio_total_bytes: int = 0  # before truncation
-        audio_truncate: tuple[int, int] | None = None
-        truncated_transcript: str | None = None
+        truncate_info: tuple[
+            tp.Annotated[int, 'content_index'],
+            tp.Annotated[int, 'audio_end_ms'],
+            tp.Annotated[str | None, 'truncated_transcript'],
+        ] | None = None
         touched_by_event_ids: list[str | None] = field(default_factory=list)
 
     def __init__(self) -> None:

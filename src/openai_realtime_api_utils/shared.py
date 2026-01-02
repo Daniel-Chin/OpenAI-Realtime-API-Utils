@@ -6,6 +6,8 @@ from contextlib import contextmanager
 import websockets
 import openai.types.realtime as tp_rt
 from openai.types.realtime.realtime_server_event import ConversationItemRetrieved
+from openai.types.realtime.realtime_conversation_item_user_message      import Content as ContentUser
+from openai.types.realtime.realtime_conversation_item_assistant_message import Content as ContentAssistent
 from openai.resources.realtime.realtime import AsyncRealtimeConnection
 from openai._models import construct_type_unchecked
 
@@ -149,3 +151,8 @@ def item_from_param(
 
 def is_root(previous_item_id: str | None) -> bool:
     return previous_item_id is None or previous_item_id == L.root
+
+def merge_content_parts_transcript(
+    content: list[ContentUser] | list[ContentAssistent], 
+) -> str:
+    return '\n'.join([x.transcript or '' for x in content])

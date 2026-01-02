@@ -4,7 +4,7 @@ from datetime import datetime
 import typing as tp
 from copy import deepcopy
 from contextlib import suppress
-import io
+import json
 
 import uuid
 import openai.types.realtime as tp_rt
@@ -12,6 +12,7 @@ import openai.types.realtime as tp_rt
 from ..shared import (
     str_item_omit_audio, parse_client_event_param, 
     item_from_param, PART_TO_CONTENT_TYPE, 
+    merge_content_parts_transcript, 
 )
 from .shared import MetadataHandlerRosterManager
 from ..conversation_group import ConversationGroup
@@ -222,10 +223,11 @@ class TrackConversation:
                 self.conversation_group.touch(event.item_id, event.event_id)
             case tp_rt.ConversationItemTruncatedEvent():
                 cell = self.conversation_group.get_cell_from_id(event.item_id)
-                # cell.audio_truncate is potentially already set by local.  
-                cell.audio_truncate = (
-                    event.content_index, event.audio_end_ms,
-                )
+                if cell.truncate_info is None:
+                    # Unreachable?
+                    cell.truncate_info = (
+                        event.content_index, event.audio_end_ms, None, 
+                    )
                 self.conversation_group.touch(event.item_id, event.event_id)
             case tp_rt.ConversationItemDeletedEvent():
                 self.conversation_group.touch(event.item_id, event.event_id)
@@ -328,40 +330,79 @@ class TrackConversation:
                 return e_p, metadata
         return event_param, metadata
 
-    def print_cell(self, cell: ConversationGroup.Cell, print_fn: tp.Callable):
-        print_fn('current state:')
+    def print_cell(
+        self, cell: ConversationGroup.Cell, 
+        verbose: bool,
+        print_fn: tp.Callable, 
+    ):
         item = self.all_items[cell.item_id]
-        print_fn(f'  {str_item_omit_audio(item)}')
-        if cell.audio_truncate is not None:
-            content_index, audio_end_ms = cell.audio_truncate
-            print_fn(f'truncate: {content_index = }, {audio_end_ms = }, ~{cell.truncated_transcript!r}')
-        if cell.response_id is not None:
-            metadata = self.responses[cell.response_id].metadata
-            print_fn(f'metadata: {metadata}')
-        print_fn('touched by:')
-        for event_id in cell.touched_by_event_ids:
-            if event_id is None:
-                print_fn('  <unindexed client event>')
-                continue
-            try:
-                event,       datetime_ = self.server_events[event_id]
-            except KeyError:
-                event_param, datetime_ = self.client_events[event_id]
-                str_event = event_param['type']
-            else:
-                str_event = type(event).__name__
-            dt = (datetime_ - self.init_time).total_seconds()
-            print_fn(f'  [{dt:5.1f}] {event_id:28s} {str_event}')
+        if verbose:
+            print_fn('current state:')
+            print_fn(f'  {str_item_omit_audio(item)}')
+            if cell.truncate_info is not None:
+                content_index, audio_end_ms, truncated_transcript = cell.truncate_info
+                print_fn(f'truncate: {content_index = }, {audio_end_ms = }, ~{truncated_transcript!r}')
+            if cell.response_id is not None:
+                metadata = self.responses[cell.response_id].metadata
+                print_fn(f'metadata: {metadata}')
+            print_fn('touched by:')
+            for event_id in cell.touched_by_event_ids:
+                if event_id is None:
+                    print_fn('  <unindexed client event>')
+                    continue
+                try:
+                    event,       datetime_ = self.server_events[event_id]
+                except KeyError:
+                    event_param, datetime_ = self.client_events[event_id]
+                    str_event = event_param['type']
+                else:
+                    str_event = type(event).__name__
+                dt = (datetime_ - self.init_time).total_seconds()
+                print_fn(f'  [{dt:5.1f}] {event_id:28s} {str_event}')
+        else:
+            match item:
+                case tp_rt.RealtimeConversationItemUserMessage():
+                    print_fn('User:', repr(merge_content_parts_transcript(item.content)))
+                case tp_rt.RealtimeConversationItemAssistantMessage():
+                    if cell.truncate_info is None:
+                        print_fn('Assistant:', repr(merge_content_parts_transcript(item.content)))
+                    else:
+                        _, _, truncated_transcript = cell.truncate_info
+                        print_fn('Assistant: ~', repr(truncated_transcript), '...', sep='')
+                case tp_rt.RealtimeConversationItemFunctionCall():
+                    print_fn('Assistant:', end=' ')
+                    self.print_function_call(item, print_fn)
+                case tp_rt.RealtimeConversationItemFunctionCallOutput():
+                    print_fn('Tool:', repr(item.output))
+                case _:
+                    print_fn('Unknown item type:', type(item))
     
-    def print_conversation(self, print_fn: tp.Callable = print) -> None:
+    def print_function_call(
+        self, item: tp_rt.RealtimeConversationItemFunctionCall, 
+        print_fn: tp.Callable,
+        end: str = '\n',
+    ) -> None:
+        kwargs: dict[str, tp.Any] = json.loads(item.arguments)
+        print_fn(item.name, '(', sep='', end='')
+        for k, v in kwargs.items():
+            print_fn(k, '=', repr(v), sep='', end=', ')
+        print_fn(')', end=end)
+    
+    def print_conversation(
+        self, 
+        verbose: bool = True,
+        print_fn: tp.Callable = print, 
+    ) -> None:
         def cell_print(*a, **kw):
-            print_fn(' ' * 4, end='')
+            if verbose:
+                print_fn(' ' * 4, end='')
             print_fn(*a, **kw)
         
         def print_cells(cells: tp.Iterable[ConversationGroup.Cell]) -> None:
             for i, cell in enumerate(cells):
-                print_fn(' ', '-' * 8, i, '-' * 8)
-                self.print_cell(cell, cell_print)
+                if verbose:
+                    print_fn(' ', '-' * 8, i, '-' * 8)
+                self.print_cell(cell, verbose=verbose, print_fn=cell_print)
         
         # print_fn('<conversation_group>')
         print_fn('<main conversation>')

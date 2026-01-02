@@ -140,23 +140,21 @@ class Interrupt:
         cell = self.track_conversation.conversation_group.get_cell_from_id(
             current_item_id, 
         )
-        cell.audio_truncate = (
-            current_item_content_index, 
-            round(elapsed_ms), 
-        )
         assert self.track_config.audio_format_output is not None
         speech_total_ms = cell.audio_total_bytes * AudioFormatInfo(
             self.track_config.audio_format_output
         ).ms_per_byte
-        
         progress_ratio = elapsed_ms / speech_total_ms
         item = self.track_conversation.all_items[current_item_id]
         assert isinstance(item, tp_rt.RealtimeConversationItemAssistantMessage)
         content = item.content[current_item_content_index]
-        if content.transcript is not None:
-            cell.truncated_transcript = content.transcript[
+        cell.truncate_info = (
+            current_item_content_index, 
+            round(elapsed_ms), 
+            content.transcript[ # approximately
                 :round(len(content.transcript) * progress_ratio)
-            ]   # approximately
+            ] if content.transcript is not None else None,
+        )
         for handler in self.on_interrupt_handlers:
             handler(current_item_id) # pause audio playback, and more
         try:
