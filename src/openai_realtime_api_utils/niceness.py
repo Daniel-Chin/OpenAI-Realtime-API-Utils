@@ -4,6 +4,7 @@
 # Windows: uses SetThreadPriority for the *current thread*.  
 
 import sys
+import errno
 import ctypes as ct
 import threading
 from enum import Enum
@@ -67,10 +68,18 @@ def _linux_set_current_thread_nice(delta: int) -> None:
         current = 0
 
     new_nice = int(max(-20, min(19, current + delta)))
-    rc = setpriority(PRIO_PROCESS, _linux_thread_id(), new_nice)
+    tid = _linux_thread_id()
+    rc = setpriority(PRIO_PROCESS, tid, new_nice)
     if rc != 0:
         err = ct.get_errno()
-        raise OSError(err, f'setpriority failed for TID={_linux_thread_id()} new_nice={new_nice}')
+        if err == errno.EACCES:
+            rc_retry = setpriority(PRIO_PROCESS, tid, 0)
+            if rc_retry == 0:
+                print(f'Warning: insufficient permissions to set nice={new_nice} for TID={tid}; reset to 0 instead')
+                return
+            err_retry = ct.get_errno()
+            raise OSError(err_retry, f'setpriority retry failed for TID={tid} new_nice=0')
+        raise OSError(err, f'setpriority failed for TID={tid} new_nice={new_nice}')
 
 
 def _linux_thread_id() -> int:
